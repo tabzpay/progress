@@ -1,0 +1,44 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  password     String
+  displayName  String?
+  phoneNumber  String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  loans        Loan[]   @relation("LenderLoans")
+  borrowed     Loan[]   @relation("BorrowerLoans")
+}
+
+model Loan {
+  id            String   @id @default(uuid())
+  amount        Float
+  currency      String
+  status        String   @default("PENDING") // PENDING, ACTIVE, PAID, CANCELLED
+  description   String?
+  dueDate       DateTime?
+  
+  lenderId      String
+  lender        User     @relation("LenderLoans", fields: [lenderId], references: [id])
+  
+  borrowerId    String?
+  borrower      User?    @relation("BorrowerLoans", fields: [borrowerId], references: [id])
+  borrowerName  String?  // For tracking informal loans without a registered user
+  borrowerEmail String?
+
+  bankName      String?
+  accountName   String?
+  accountNumber String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
