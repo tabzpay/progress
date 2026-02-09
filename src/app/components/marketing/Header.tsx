@@ -83,55 +83,76 @@ export function Header() {
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[60] md:hidden"
+                        className="fixed inset-0 z-[100] md:hidden"
                     >
-                        {/* Backdrop Blur */}
-                        <div className="absolute inset-0 bg-white/80 backdrop-blur-2xl" />
+                        {/* Ultra-Transparent Premium Glass - Extreme blur melts underlying content */}
+                        <div className="absolute inset-0 bg-white" />
 
                         {/* Menu Content */}
-                        <div className="relative h-full flex flex-col px-8 pt-24 pb-12">
-                            <button
-                                onClick={() => setMobileMenuOpen(false)}
-                                className="absolute top-5 right-5 w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center shadow-lg"
-                            >
-                                <X className="w-6 h-6" />
-                            </button>
+                        <div className="relative h-full flex flex-col px-8 pt-6 pb-12">
+                            {/* Brand and Close Header - Minimalist */}
+                            <div className="flex items-center justify-between mb-20 h-16">
+                                <Link to="/" className="flex items-center gap-2" onClick={() => setMobileMenuOpen(false)}>
+                                    <div className="bg-slate-950 p-2.5 rounded-2xl shadow-xl shadow-slate-900/20">
+                                        <Handshake className="w-6 h-6 text-white" />
+                                    </div>
+                                    <span className="text-2xl font-black tracking-tighter text-slate-950">Progress</span>
+                                </Link>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="w-12 h-12 rounded-2xl bg-white/50 backdrop-blur-md border border-white/50 text-slate-950 shadow-sm hover:bg-white"
+                                    onClick={() => setMobileMenuOpen(false)}
+                                >
+                                    <X className="w-6 h-6" />
+                                </Button>
+                            </div>
 
-                            <div className="flex-1 space-y-8">
-                                <p className="text-[10px] uppercase font-black tracking-[0.4em] text-indigo-500 mb-8">Navigation</p>
-                                {navLinks.map((link, i) => (
-                                    <motion.div
-                                        key={link.name}
-                                        initial={{ x: -20, opacity: 0 }}
-                                        animate={{ x: 0, opacity: 1 }}
-                                        transition={{ delay: i * 0.1 }}
-                                    >
-                                        <Link
-                                            to={link.href}
-                                            className="text-4xl font-black text-slate-950 hover:text-indigo-600 transition-colors"
-                                            onClick={() => setMobileMenuOpen(false)}
+                            <div className="flex-1 flex flex-col justify-start">
+                                <p className="text-[10px] uppercase font-black tracking-[1em] text-indigo-600 mb-10 opacity-40">Menu</p>
+                                <nav className="flex flex-col gap-6">
+                                    {navLinks.map((link, i) => (
+                                        <motion.div
+                                            key={link.name}
+                                            initial={{ x: -30, opacity: 0 }}
+                                            animate={{ x: 0, opacity: 1 }}
+                                            transition={{ delay: i * 0.1, type: "spring", stiffness: 100 }}
                                         >
-                                            {link.name}
-                                        </Link>
-                                    </motion.div>
-                                ))}
+                                            <Link
+                                                to={link.href}
+                                                className="text-3xl sm:text-4xl font-black text-slate-950 hover:text-indigo-600 transition-all tracking-tighter flex items-center gap-3"
+                                                onClick={() => setMobileMenuOpen(false)}
+                                            >
+                                                {link.name}
+                                                {link.name === "Stories" && (
+                                                    <span className="text-[10px] font-bold bg-indigo-50 text-indigo-600 px-2 py-1 rounded-full border border-indigo-100 align-middle transform -translate-y-1">
+                                                        +10k
+                                                    </span>
+                                                )}
+                                            </Link>
+                                        </motion.div>
+                                    ))}
+                                </nav>
                             </div>
 
                             <motion.div
-                                initial={{ y: 20, opacity: 0 }}
+                                initial={{ y: 40, opacity: 0 }}
                                 animate={{ y: 0, opacity: 1 }}
                                 transition={{ delay: 0.5 }}
-                                className="space-y-4"
+                                className="grid grid-cols-2 gap-4 mt-auto pt-10"
                             >
                                 <Button
                                     variant="outline"
                                     asChild
-                                    className="w-full h-16 rounded-2xl text-lg font-bold border-slate-200"
+                                    className="h-20 rounded-[2rem] text-xl font-black border-white/50 bg-white/20 backdrop-blur-md text-slate-950 shadow-xl shadow-slate-900/5 relative overflow-hidden"
                                 >
-                                    <Link to="/sign-in">Sign In</Link>
+                                    <Link to="/sign-in" onClick={() => setMobileMenuOpen(false)}>
+                                        <div className="w-3 h-3 rounded-full bg-rose-400 mr-3" />
+                                        Login
+                                    </Link>
                                 </Button>
-                                <Button asChild className="w-full h-16 rounded-2xl text-lg font-bold bg-slate-950 shadow-xl">
-                                    <Link to="/get-started">Get Started</Link>
+                                <Button asChild className="h-20 rounded-[2rem] text-xl font-black bg-slate-950 text-white shadow-2xl shadow-indigo-500/10 active:scale-95 transition-all">
+                                    <Link to="/get-started" onClick={() => setMobileMenuOpen(false)}>Join</Link>
                                 </Button>
                             </motion.div>
                         </div>
