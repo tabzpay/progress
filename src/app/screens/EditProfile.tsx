@@ -8,39 +8,59 @@ import { Label } from "../components/ui/label";
 import { SuccessOverlay } from "../components/SuccessOverlay";
 import { cn } from "../components/ui/utils";
 import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ProfileSchema, type ProfileFormData } from "../../lib/schemas";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
 
 export function EditProfile() {
     const navigate = useNavigate();
-    const [name, setName] = useState("");
-    const [phone, setPhone] = useState("");
-    const [email, setEmail] = useState("");
     const [isSuccessOpen, setIsSuccessOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+
+    const {
+        register,
+        handleSubmit,
+        reset,
+        watch,
+        formState: { errors },
+    } = useForm<ProfileFormData>({
+        resolver: zodResolver(ProfileSchema),
+        defaultValues: {
+            full_name: "",
+            phone: "",
+            email: "",
+        },
+    });
+
+    const full_name = watch("full_name");
+    const email = watch("email");
 
     useEffect(() => {
         async function getProfile() {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                setName(user.user_metadata?.full_name || "");
-                setPhone(user.phone || "");
-                setEmail(user.email || "");
+                reset({
+                    full_name: user.user_metadata?.full_name || "",
+                    phone: user.phone || "",
+                    email: user.email || "",
+                });
             }
             setIsLoading(false);
         }
         getProfile();
-    }, []);
+    }, [reset]);
 
-    const handleSave = async () => {
+    const handleSave = async (data: ProfileFormData) => {
         setIsSaving(true);
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("No user session");
 
             const { error: authError } = await supabase.auth.updateUser({
-                data: { full_name: name }
+                data: { full_name: data.full_name }
             });
             if (authError) throw authError;
 
@@ -48,7 +68,7 @@ export function EditProfile() {
                 .from('profiles')
                 .upsert({
                     id: user.id,
-                    full_name: name
+                    full_name: data.full_name
                 });
             if (profileError) throw profileError;
 
@@ -108,7 +128,7 @@ export function EditProfile() {
                         <div className="relative group">
                             <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-indigo-500 to-blue-600 p-0.5 shadow-lg overflow-hidden">
                                 <div className="w-full h-full rounded-[calc(1.5rem-2px)] bg-white flex items-center justify-center font-black text-3xl text-transparent bg-clip-text bg-gradient-to-br from-indigo-600 to-blue-600">
-                                    {name.charAt(0)}
+                                    {full_name?.charAt(0) || "U"}
                                 </div>
                             </div>
                             <button className="absolute -bottom-2 -right-2 w-10 h-10 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all">
@@ -127,14 +147,17 @@ export function EditProfile() {
                             <div className="relative group">
                                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
                                 <Input
-                                    id="name"
+                                    id="full_name"
                                     type="text"
                                     placeholder="Your full name"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    className="pl-11 h-14 bg-slate-50 border-transparent focus:bg-white focus:ring-primary/20 focus:border-primary/20 rounded-2xl transition-all font-bold"
+                                    {...register("full_name")}
+                                    className={cn(
+                                        "pl-11 h-14 bg-slate-50 border-transparent focus:bg-white focus:ring-primary/20 focus:border-primary/20 rounded-2xl transition-all font-bold",
+                                        errors.full_name && "border-red-500 bg-red-50/10"
+                                    )}
                                 />
                             </div>
+                            {errors.full_name && <p className="text-[10px] text-red-500 font-bold uppercase tracking-wider ml-1 mt-1">{errors.full_name.message}</p>}
                         </div>
 
                         <div className="space-y-2">
@@ -145,11 +168,14 @@ export function EditProfile() {
                                     id="phone"
                                     type="tel"
                                     placeholder="+1234567890"
-                                    value={phone}
-                                    onChange={(e) => setPhone(e.target.value)}
-                                    className="pl-11 h-14 bg-slate-50 border-transparent focus:bg-white focus:ring-primary/20 focus:border-primary/20 rounded-2xl transition-all font-bold tabular-nums"
+                                    {...register("phone")}
+                                    className={cn(
+                                        "pl-11 h-14 bg-slate-50 border-transparent focus:bg-white focus:ring-primary/20 focus:border-primary/20 rounded-2xl transition-all font-bold tabular-nums",
+                                        errors.phone && "border-red-500 bg-red-50/10"
+                                    )}
                                 />
                             </div>
+                            {errors.phone && <p className="text-[10px] text-red-500 font-bold uppercase tracking-wider ml-1 mt-1">{errors.phone.message}</p>}
                         </div>
 
                         <div className="space-y-2">
@@ -177,7 +203,7 @@ export function EditProfile() {
                         </Button>
                         <Button
                             className="flex-[2] h-16 rounded-3xl bg-slate-900 hover:bg-slate-800 text-white font-bold shadow-lg shadow-black/10 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                            onClick={handleSave}
+                            onClick={handleSubmit(handleSave)}
                             disabled={isSaving || isLoading}
                         >
                             <Save className="w-5 h-5 mr-2" />

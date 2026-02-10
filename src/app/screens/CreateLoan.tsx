@@ -1,6 +1,9 @@
-import { useState } from "react";
-import { ArrowLeft, Check, User, Briefcase, Users, DollarSign, Calendar, FileText, ChevronRight, BellRing } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowLeft, Check, User, Briefcase, Users, DollarSign, Calendar, FileText, ChevronRight, BellRing, BookmarkPlus, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { LoanSchema, type LoanFormData } from "../../lib/schemas";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -8,9 +11,11 @@ import { Label } from "../components/ui/label";
 import { Textarea } from "../components/ui/textarea";
 import { SuccessOverlay } from "../components/SuccessOverlay";
 import { ShareOverlay } from "../components/ShareOverlay";
+import { TemplateManager } from "../components/TemplateManager";
 import { cn } from "../components/ui/utils";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
+import { analytics } from "../../lib/analytics";
 
 type LoanType = "personal" | "business" | "group";
 
@@ -18,19 +23,71 @@ export function CreateLoan() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState(0);
-  const [loanType, setLoanType] = useState<LoanType>("personal");
-  const [borrowerName, setBorrowerName] = useState("");
-  const [currency, setCurrency] = useState("USD");
-  const [amount, setAmount] = useState("");
-  const [dueDate, setDueDate] = useState("");
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    trigger,
+    formState: { errors },
+  } = useForm<LoanFormData>({
+    resolver: zodResolver(LoanSchema),
+    defaultValues: {
+      type: "personal",
+      currency: "USD",
+      borrower_name: "",
+      amount: 0,
+      due_date: "",
+      note: "",
+    },
+  });
+
+  const borrower_name = watch("borrower_name");
+  const type = watch("type");
+  const currency = watch("currency");
+  const amount = watch("amount") || 0;
+  const due_date = watch("due_date");
+  const note = watch("note");
+
   const [bankName, setBankName] = useState("");
   const [accountName, setAccountName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
-  const [notes, setNotes] = useState("");
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [shareUrl, setShareUrl] = useState("");
+
+  // Group State
+  const [groups, setGroups] = useState<any[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+
+  // Template State
+  const [isTemplateManagerOpen, setIsTemplateManagerOpen] = useState(false);
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+
+  useEffect(() => {
+    fetchGroups();
+  }, []);
+
+  async function fetchGroups() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('groups')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setGroups(data || []);
+    } catch (error) {
+      console.error("Error fetching groups:", error);
+    }
+  }
 
   const bankList: Record<string, string[]> = {
     USD: ["JPMorgan Chase", "Bank of America", "Wells Fargo", "Citigroup", "Capital One"],
@@ -76,12 +133,19 @@ export function CreateLoan() {
     },
   ];
 
-  const handleNext = () => {
-    if (step === 1 && (!loanType || !borrowerName)) {
-      return;
+  const handleNext = async () => {
+    if (step === 1) {
+      const isValid = await trigger(["type", "borrower_name"]);
+      if (!isValid) return;
+
+      if (type === 'group' && !selectedGroupId) {
+        toast.error("Please select a group for this loan");
+        return;
+      }
     }
-    if (step === 2 && (!amount || !dueDate)) {
-      return;
+    if (step === 2) {
+      const isValid = await trigger(["amount", "due_date"]);
+      if (!isValid) return;
     }
     if (step < 4) {
       setDirection(1);
@@ -112,13 +176,14 @@ export function CreateLoan() {
 
       const { data, error } = await supabase.from('loans').insert([{
         lender_id: user.id,
-        amount: parseFloat(amount),
+        amount: amount,
         currency,
         status: 'PENDING',
-        borrower_name: borrowerName,
-        description: notes || "Shared Ledger Loan",
-        due_date: dueDate ? new Date(dueDate).toISOString() : null,
-        type: loanType,
+        borrower_name: borrower_name,
+        description: note || "Shared Ledger Loan",
+        due_date: due_date ? new Date(due_date).toISOString() : null,
+        type: type,
+        group_id: type === 'group' ? selectedGroupId : null, // Link to group
         bank_details: {
           bankName,
           accountName,
@@ -128,13 +193,23 @@ export function CreateLoan() {
 
       if (error) throw error;
 
+      // Track loan creation in analytics
+      if (data && data[0]) {
+        analytics.loanCreated(data[0].id, {
+          type: type,
+          amount: amount,
+          currency,
+          hasGroup: type === 'group' && !!selectedGroupId,
+        });
+      }
+
       // Create notification for creator
       await supabase
         .from('notifications')
         .insert([{
           user_id: user.id,
           title: "Loan Record Created",
-          message: `Your loan to ${borrowerName} for ${currency} ${amount} is now active.`,
+          message: `Your loan to ${borrower_name} for ${currency} ${amount} is now active.`,
           type: 'system',
           link_to: `/dashboard`
         }]);
@@ -147,6 +222,53 @@ export function CreateLoan() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSaveAsTemplate = async () => {
+    if (!templateName.trim()) {
+      toast.error("Please enter a template name");
+      return;
+    }
+
+    try {
+      setIsSavingTemplate(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase.from('loan_templates').insert([{
+        user_id: user.id,
+        name: templateName,
+        loan_type: type,
+        currency,
+        default_amount: amount || null,
+        bank_name: bankName || null,
+        account_name: accountName || null,
+        notes: note || null,
+      }]);
+
+      if (error) throw error;
+
+      analytics.templateSaved(templateName);
+      toast.success(`Template "${templateName}" saved!`);
+      setTemplateName("");
+      setShowSaveTemplate(false);
+    } catch (error: any) {
+      console.error("Error saving template:", error);
+      toast.error("Failed to save template");
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
+
+  const handleLoadTemplate = (template: any) => {
+    setValue("type", template.loan_type);
+    if (template.currency) setValue("currency", template.currency);
+    if (template.default_amount) setValue("amount", template.default_amount);
+    if (template.bank_name) setBankName(template.bank_name);
+    if (template.account_name) setAccountName(template.account_name);
+    if (template.note) setValue("note", template.note);
+
+    toast.success(`Template "${template.name}" loaded!`);
   };
 
   const formatAmount = (value: string) => {
@@ -207,6 +329,15 @@ export function CreateLoan() {
                 </span>
               </div>
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white hover:bg-white/10 rounded-full h-10 w-10 border border-white/20 backdrop-blur-sm shrink-0"
+              onClick={() => setIsTemplateManagerOpen(true)}
+              title="Load Template"
+            >
+              <BookmarkPlus className="w-5 h-5" />
+            </Button>
           </div>
         </div>
       </header>
@@ -232,13 +363,13 @@ export function CreateLoan() {
                   </p>
 
                   <div className="grid gap-3">
-                    {loanTypes.map((type) => {
-                      const Icon = type.icon;
-                      const isSelected = loanType === type.value;
+                    {loanTypes.map((t) => {
+                      const Icon = t.icon;
+                      const isSelected = type === t.value;
                       return (
                         <button
-                          key={type.value}
-                          onClick={() => setLoanType(type.value)}
+                          key={t.value}
+                          onClick={() => setValue("type", t.value)}
                           className={cn(
                             "relative w-full p-4 rounded-2xl border-2 text-left transition-all group overflow-hidden",
                             isSelected
@@ -249,14 +380,14 @@ export function CreateLoan() {
                           <div className="flex items-center gap-4 relative z-10">
                             <div className={cn(
                               "w-12 h-12 rounded-xl flex items-center justify-center transition-colors",
-                              isSelected ? type.color + " text-white" : "bg-muted text-muted-foreground group-hover:bg-muted/80"
+                              isSelected ? t.color + " text-white" : "bg-muted text-muted-foreground group-hover:bg-muted/80"
                             )}>
                               <Icon className="w-6 h-6" />
                             </div>
                             <div className="flex-1">
-                              <div className="font-bold text-[15px] mb-0.5">{type.label}</div>
+                              <div className="font-bold text-[15px] mb-0.5">{t.label}</div>
                               <div className="text-xs text-muted-foreground font-medium">
-                                {type.description}
+                                {t.description}
                               </div>
                             </div>
                             {isSelected && (
@@ -270,12 +401,61 @@ export function CreateLoan() {
                             )}
                           </div>
                           {isSelected && (
-                            <div className={cn("absolute inset-y-0 left-0 w-1", type.color.replace('bg-', 'bg-'))} />
+                            <div className={cn("absolute inset-y-0 left-0 w-1", t.color.replace('bg-', 'bg-'))} />
                           )}
                         </button>
                       );
                     })}
                   </div>
+
+                  {/* Group Selection Dropdown */}
+                  {type === 'group' && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      className="mt-4 pt-4 border-t border-border"
+                    >
+                      <Label className="text-[11px] uppercase font-black tracking-widest text-muted-foreground/70 ml-1 mb-2 block">
+                        Select Group
+                      </Label>
+
+                      {groups.length > 0 ? (
+                        <div className="grid grid-cols-1 gap-2">
+                          {groups.map(group => (
+                            <button
+                              key={group.id}
+                              onClick={() => setSelectedGroupId(group.id)}
+                              className={cn(
+                                "flex items-center gap-3 p-3 rounded-xl border text-sm font-bold transition-all",
+                                selectedGroupId === group.id
+                                  ? "bg-violet-50 border-violet-500 text-violet-700 shadow-sm"
+                                  : "bg-white border-border text-slate-600 hover:border-violet-200"
+                              )}
+                            >
+                              <div className="w-8 h-8 rounded-full bg-violet-100 flex items-center justify-center text-violet-600">
+                                <Users className="w-4 h-4" />
+                              </div>
+                              {group.name}
+                              {selectedGroupId === group.id && <Check className="w-4 h-4 ml-auto text-violet-600" />}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+                          <p className="text-sm font-bold text-amber-800 mb-2">No Groups Found</p>
+                          <p className="text-xs text-amber-600 mb-3">You need to create a group first.</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="bg-white border-amber-200 text-amber-800 hover:bg-amber-100"
+                            onClick={() => navigate('/groups')}
+                          >
+                            Create Group
+                          </Button>
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
                 </div>
 
                 <div className="bg-card border border-border rounded-3xl p-6 shadow-sm">
@@ -285,25 +465,30 @@ export function CreateLoan() {
                   </p>
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="borrowerName" className="text-[11px] uppercase font-black tracking-widest text-muted-foreground/70 ml-1">Full Name or Phone</Label>
+                      <Label htmlFor="borrower_name" className="text-[11px] uppercase font-black tracking-widest text-muted-foreground/70 ml-1">Full Name or Phone</Label>
                       <div className="relative group">
                         <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                         <Input
-                          id="borrowerName"
+                          id="borrower_name"
                           type="text"
                           placeholder="e.g. Sarah Chen"
-                          value={borrowerName}
-                          onChange={(e) => setBorrowerName(e.target.value)}
-                          className="pl-11 h-14 bg-muted/30 border-transparent focus:bg-background focus:ring-primary/20 focus:border-primary/20 rounded-2xl transition-all"
+                          {...register("borrower_name")}
+                          className={cn(
+                            "pl-11 h-14 bg-muted/30 border-transparent focus:bg-background focus:ring-primary/20 focus:border-primary/20 rounded-2xl transition-all",
+                            errors.borrower_name && "border-destructive ring-destructive/20 bg-destructive/5"
+                          )}
                         />
                       </div>
+                      {errors.borrower_name && (
+                        <p className="text-[10px] font-bold text-destructive ml-1 animate-pulse italic">{errors.borrower_name.message}</p>
+                      )}
                     </div>
                     <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 flex gap-3">
                       <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center shrink-0">
                         <BellRing className="w-5 h-5 text-indigo-600" />
                       </div>
                       <p className="text-[11px] font-medium text-indigo-900/70 leading-relaxed">
-                        We'll notify {borrowerName || "the person"} so they can verify the terms and track payments.
+                        We'll notify {borrower_name || "the person"} so they can verify the terms and track payments.
                       </p>
                     </div>
                   </div>
@@ -327,7 +512,8 @@ export function CreateLoan() {
                           {currencies.map((c) => (
                             <button
                               key={c.code}
-                              onClick={() => setCurrency(c.code)}
+                              type="button"
+                              onClick={() => setValue("currency", c.code)}
                               className={cn(
                                 "px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all",
                                 currency === c.code
@@ -348,26 +534,36 @@ export function CreateLoan() {
                           id="amount"
                           type="number"
                           placeholder="0.00"
-                          value={amount}
-                          onChange={(e) => setAmount(e.target.value)}
-                          className="pl-14 h-20 text-4xl font-black tabular-nums bg-muted/30 border-transparent focus:bg-background focus:ring-primary/20 focus:border-primary/20 rounded-3xl transition-all tracking-tighter"
+                          {...register("amount", { valueAsNumber: true })}
+                          className={cn(
+                            "pl-14 h-20 text-4xl font-black tabular-nums bg-muted/30 border-transparent focus:bg-background focus:ring-primary/20 focus:border-primary/20 rounded-3xl transition-all tracking-tighter",
+                            errors.amount && "border-destructive ring-destructive/20 bg-destructive/5"
+                          )}
                         />
                       </div>
+                      {errors.amount && (
+                        <p className="text-[10px] font-bold text-destructive ml-1 animate-pulse italic">{errors.amount.message}</p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="dueDate" className="text-[11px] uppercase font-black tracking-widest text-muted-foreground/70 ml-1">Repayment Date</Label>
+                      <Label htmlFor="due_date" className="text-[11px] uppercase font-black tracking-widest text-muted-foreground/70 ml-1">Repayment Date</Label>
                       <div className="relative group">
                         <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                         <Input
-                          id="dueDate"
+                          id="due_date"
                           type="date"
-                          value={dueDate}
-                          onChange={(e) => setDueDate(e.target.value)}
-                          className="pl-12 h-14 bg-muted/30 border-transparent focus:bg-background focus:ring-primary/20 focus:border-primary/20 rounded-2xl transition-all font-bold"
+                          {...register("due_date")}
+                          className={cn(
+                            "pl-12 h-14 bg-muted/30 border-transparent focus:bg-background focus:ring-primary/20 focus:border-primary/20 rounded-2xl transition-all font-bold",
+                            errors.due_date && "border-destructive ring-destructive/20 bg-destructive/5"
+                          )}
                           min={new Date().toISOString().split("T")[0]}
                         />
                       </div>
+                      {errors.due_date && (
+                        <p className="text-[10px] font-bold text-destructive ml-1 animate-pulse italic">{errors.due_date.message}</p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -378,12 +574,14 @@ export function CreateLoan() {
                     Add context or purpose (optional)
                   </p>
                   <Textarea
-                    id="notes"
+                    id="note"
                     placeholder="e.g. Laptop repair, inventory purchase..."
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
+                    {...register("note")}
                     className="min-h-[120px] bg-muted/30 border-transparent focus:bg-background focus:ring-primary/20 focus:border-primary/20 rounded-2xl transition-all resize-none text-[15px]"
                   />
+                  {errors.note && (
+                    <p className="text-[10px] font-bold text-destructive ml-1 mt-2 italic">{errors.note.message}</p>
+                  )}
                 </div>
               </div>
             )}
@@ -406,7 +604,7 @@ export function CreateLoan() {
                           id="region"
                           value={currency}
                           onChange={(e) => {
-                            setCurrency(e.target.value);
+                            setValue("currency", e.target.value);
                             setBankName("");
                           }}
                           className="w-full pl-11 pr-4 h-14 bg-muted/30 border-transparent focus:bg-background focus:ring-primary/20 focus:border-primary/20 rounded-2xl transition-all font-bold appearance-none outline-none"
@@ -505,25 +703,34 @@ export function CreateLoan() {
                   <div className="grid grid-cols-2 gap-8 relative z-10">
                     <div>
                       <div className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/50 mb-2">Borrower</div>
-                      <div className="font-bold text-lg">{borrowerName}</div>
+                      <div className="font-bold text-lg">{borrower_name}</div>
                     </div>
                     <div>
                       <div className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/50 mb-2">Type</div>
                       <div className="font-bold flex items-center gap-2">
-                        <div className={cn("w-2 h-2 rounded-full", loanTypes.find(t => t.value === loanType)?.color)} />
-                        {loanType.charAt(0).toUpperCase() + loanType.slice(1)}
+                        <div className={cn("w-2 h-2 rounded-full", loanTypes.find(t => t.value === type)?.color)} />
+                        {type.charAt(0).toUpperCase() + type.slice(1)}
                       </div>
                     </div>
+                    {type === 'group' && (
+                      <div className="col-span-2">
+                        <div className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/50 mb-2">Group</div>
+                        <div className="font-bold text-lg flex items-center gap-2 text-violet-700">
+                          <Users className="w-4 h-4" />
+                          {groups.find(g => g.id === selectedGroupId)?.name || "Unknown Group"}
+                        </div>
+                      </div>
+                    )}
                     <div className="col-span-2">
                       <div className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/50 mb-2">Amount</div>
                       <div className="text-5xl font-black tabular-nums tracking-tighter text-indigo-600">
-                        {formatAmount(amount)}
+                        {formatAmount(amount.toString())}
                       </div>
                     </div>
                     <div>
                       <div className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/50 mb-2">Repayment Due</div>
                       <div className="font-bold text-lg">
-                        {new Date(dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        {due_date ? new Date(due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Not set"}
                       </div>
                     </div>
                     <div>
@@ -553,8 +760,8 @@ export function CreateLoan() {
             <Button
               className={cn(
                 "w-full h-16 rounded-[2rem] text-lg font-bold shadow-lg shadow-primary/20 transition-all",
-                (step === 1 && (!loanType || !borrowerName)) ||
-                  (step === 2 && (!amount || !dueDate)) ||
+                (step === 1 && (errors.borrower_name || !type || (type === 'group' && !selectedGroupId))) ||
+                  (step === 2 && (errors.amount || errors.due_date)) ||
                   (step === 3 && (!bankName || !accountName || !accountNumber)) ||
                   isSubmitting
                   ? "opacity-50 grayscale"
@@ -569,20 +776,21 @@ export function CreateLoan() {
           </motion.div>
         </div>
       </div>
+
       <SuccessOverlay
         isOpen={isSuccessOpen}
         onClose={() => navigate("/dashboard")}
         onAction={() => navigate("/dashboard")}
-        secondaryActionLabel="Share Invitation"
+        secondaryActionLabel="Save as Template"
         onSecondaryAction={() => {
-          const url = `https://progress-app.com/accept/${Math.random().toString(36).substring(7)}`;
-          setShareUrl(url);
-          setIsShareOpen(true);
+          setIsSuccessOpen(false);
+          setShowSaveTemplate(true);
         }}
         title="Loan Created!"
         message="Your new loan record has been successfully created and saved to your dashboard."
         details={[
-          { label: "Borrower", value: borrowerName },
+          { label: "Borrower", value: borrower_name },
+          { label: type === 'group' ? "Group" : "Type", value: type === 'group' ? (groups.find(g => g.id === selectedGroupId)?.name || "Group") : "Personal" },
           { label: "Amount", value: `${currencies.find(c => c.code === currency)?.symbol}${amount}` },
           { label: "Payout to", value: `${bankName} • ${accountName} • ${accountNumber}` }
         ]}
@@ -594,8 +802,82 @@ export function CreateLoan() {
         onClose={() => setIsShareOpen(false)}
         title="Invite Link Generated!"
         shareUrl={shareUrl}
-        recipientName={borrowerName}
+        recipientName={borrower_name}
       />
+
+      <TemplateManager
+        isOpen={isTemplateManagerOpen}
+        onClose={() => setIsTemplateManagerOpen(false)}
+        onSelectTemplate={handleLoadTemplate}
+      />
+
+      {/* Save Template Dialog */}
+      {showSaveTemplate && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center">
+                <Sparkles className="w-6 h-6 text-indigo-600" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold">Save as Template</h2>
+                <p className="text-sm text-muted-foreground">Reuse this configuration later</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="templateName" className="text-sm font-bold">Template Name</Label>
+                <Input
+                  id="templateName"
+                  value={templateName}
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  placeholder="e.g., Monthly Business Loan"
+                  className="mt-2"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveAsTemplate();
+                  }}
+                />
+              </div>
+
+              <div className="bg-slate-50 rounded-xl p-3 text-xs space-y-1">
+                <p className="font-bold text-slate-700">This template will save:</p>
+                <ul className="list-disc list-inside text-slate-600 space-y-0.5">
+                  <li>Loan type: {type}</li>
+                  <li>Currency: {currency}</li>
+                  {amount > 0 && <li>Amount: {formatAmount(amount.toString())}</li>}
+                  {bankName && <li>Bank: {bankName}</li>}
+                </ul>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowSaveTemplate(false);
+                    setTemplateName("");
+                  }}
+                  className="flex-1"
+                  disabled={isSavingTemplate}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveAsTemplate}
+                  className="flex-1"
+                  disabled={isSavingTemplate || !templateName.trim()}
+                >
+                  {isSavingTemplate ? "Saving..." : "Save Template"}
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

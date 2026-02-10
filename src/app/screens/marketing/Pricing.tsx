@@ -31,54 +31,54 @@ export function Pricing() {
                 {/* Pricing Cards */}
                 <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-24">
                     <div className="grid md:grid-cols-3 gap-8">
-                        {/* Free */}
-                        <div className="p-8 rounded-3xl border bg-background shadow-sm">
+                        {/* Free - The Hook */}
+                        <div className="p-8 rounded-3xl border bg-background shadow-sm hover:shadow-md transition-shadow">
                             <h3 className="font-bold text-xl mb-2">Starter</h3>
                             <div className="text-4xl font-bold mb-2">$0</div>
-                            <p className="text-muted-foreground text-sm mb-6">For casual lending between friends.</p>
+                            <p className="text-muted-foreground text-sm mb-6">Perfect for tracking loans between friends.</p>
                             <Button variant="outline" className="w-full mb-8" asChild>
-                                <Link to="/get-started">Get Started</Link>
-                            </Button>
-                            <ul className="space-y-3 text-sm">
-                                <li className="flex gap-3"><Check className="w-5 h-5 text-primary" /> 5 Active Loans</li>
-                                <li className="flex gap-3"><Check className="w-5 h-5 text-primary" /> Basic Reminders</li>
-                                <li className="flex gap-3"><Check className="w-5 h-5 text-primary" /> 1 Group</li>
-                                <li className="flex gap-3 text-muted-foreground"><X className="w-5 h-5" /> Export Data</li>
-                            </ul>
-                        </div>
-
-                        {/* Pro */}
-                        <div className="p-8 rounded-3xl border-2 border-primary bg-primary/5 shadow-xl relative">
-                            <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-bl-xl">POPULAR</div>
-                            <h3 className="font-bold text-xl mb-2">Pro</h3>
-                            <div className="text-4xl font-bold mb-2">$5<span className="text-lg font-normal text-muted-foreground">/mo</span></div>
-                            <p className="text-muted-foreground text-sm mb-6">Power users and community organizers.</p>
-                            <Button className="w-full mb-8" asChild>
-                                <Link to="/auth">Start Free Trial</Link>
+                                <Link to="/get-started">Get Started Free</Link>
                             </Button>
                             <ul className="space-y-3 text-sm">
                                 <li className="flex gap-3"><Check className="w-5 h-5 text-primary" /> Unlimited Active Loans</li>
-                                <li className="flex gap-3"><Check className="w-5 h-5 text-primary" /> SMS & WhatsApp Reminders</li>
-                                <li className="flex gap-3"><Check className="w-5 h-5 text-primary" /> Unlimited Groups</li>
-                                <li className="flex gap-3"><Check className="w-5 h-5 text-primary" /> PDF/CSV Export</li>
-                                <li className="flex gap-3"><Check className="w-5 h-5 text-primary" /> Priority Support</li>
+                                <li className="flex gap-3"><Check className="w-5 h-5 text-primary" /> Manual Repayment Tracking</li>
+                                <li className="flex gap-3"><Check className="w-5 h-5 text-primary" /> Basic Email Reminders</li>
+                                <li className="flex gap-3"><Check className="w-5 h-5 text-primary" /> Standard Dashboard</li>
                             </ul>
                         </div>
 
-                        {/* Business */}
-                        <div className="p-8 rounded-3xl border bg-background shadow-sm">
+                        {/* Pro - The Value Add */}
+                        <div className="p-8 rounded-3xl border-2 border-indigo-600 bg-indigo-50/50 shadow-xl relative scale-105 transform">
+                            <div className="absolute top-0 right-0 bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-2xl">MOST POPULAR</div>
+                            <h3 className="font-bold text-xl mb-2 text-indigo-900">Pro</h3>
+                            <div className="text-4xl font-bold mb-2 text-indigo-900">$5<span className="text-lg font-normal text-indigo-600/70">/mo</span></div>
+                            <p className="text-indigo-700/70 text-sm mb-6">Automate the awkward parts.</p>
+                            <Button className="w-full mb-8 bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-200" asChild>
+                                <Link to="/auth">Start 14-Day Free Trial</Link>
+                            </Button>
+                            <ul className="space-y-3 text-sm">
+                                <li className="flex gap-3"><Check className="w-5 h-5 text-indigo-600" /> <strong>Everything in Starter</strong></li>
+                                <li className="flex gap-3"><Check className="w-5 h-5 text-indigo-600" /> Automated WhatsApp/SMS Reminders</li>
+                                <li className="flex gap-3"><Check className="w-5 h-5 text-indigo-600" /> Legal Contract Generation (PDF)</li>
+                                <li className="flex gap-3"><Check className="w-5 h-5 text-indigo-600" /> Export Data (CSV/PDF)</li>
+                                <li className="flex gap-3"><Check className="w-5 h-5 text-indigo-600" /> Smart Bank Matching (Coming Soon)</li>
+                            </ul>
+                        </div>
+
+                        {/* Business - The anchor */}
+                        <div className="p-8 rounded-3xl border bg-background shadow-sm hover:shadow-md transition-shadow">
                             <h3 className="font-bold text-xl mb-2">Business</h3>
                             <div className="text-4xl font-bold mb-2">$29<span className="text-lg font-normal text-muted-foreground">/mo</span></div>
-                            <p className="text-muted-foreground text-sm mb-6">For micro-lenders and small businesses.</p>
+                            <p className="text-muted-foreground text-sm mb-6">For micro-lenders and organizations.</p>
                             <Button variant="outline" className="w-full mb-8" asChild>
                                 <a href="mailto:sales@progress.app">Contact Sales</a>
                             </Button>
                             <ul className="space-y-3 text-sm">
                                 <li className="flex gap-3"><Check className="w-5 h-5 text-primary" /> Everything in Pro</li>
+                                <li className="flex gap-3"><Check className="w-5 h-5 text-primary" /> White-label Branding</li>
+                                <li className="flex gap-3"><Check className="w-5 h-5 text-primary" /> Multi-user Team Access</li>
                                 <li className="flex gap-3"><Check className="w-5 h-5 text-primary" /> API Access</li>
-                                <li className="flex gap-3"><Check className="w-5 h-5 text-primary" /> Team Members (up to 5)</li>
-                                <li className="flex gap-3"><Check className="w-5 h-5 text-primary" /> Custom Branding</li>
-                                <li className="flex gap-3"><Check className="w-5 h-5 text-primary" /> Legal Contract Templates</li>
+                                <li className="flex gap-3"><Check className="w-5 h-5 text-primary" /> Dedicated Account Manager</li>
                             </ul>
                         </div>
                     </div>

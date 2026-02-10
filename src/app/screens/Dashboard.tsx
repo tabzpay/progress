@@ -1,4 +1,4 @@
-import { Plus, DollarSign, FileText, Menu, User, Search, Filter, ArrowRight, BellRing, UserPlus, HeartPulse, AlertTriangle, CheckCircle2, Navigation } from "lucide-react";
+import { Plus, DollarSign, FileText, Menu, User, Search, Filter, ArrowRight, BellRing, UserPlus, HeartPulse, AlertTriangle, CheckCircle2, Navigation, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -13,6 +13,8 @@ import { cn } from "../components/ui/utils";
 import { useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
+import { DashboardSkeleton } from "../components/Skeletons";
+import { exportToCSV } from "../../lib/csvExport";
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -142,6 +144,21 @@ export function Dashboard() {
     }
   }
 
+  const handleExportCSV = () => {
+    const headers = [
+      { label: "Borrower", key: "borrower_name" },
+      { label: "Amount", key: "amount" },
+      { label: "Currency", key: "currency" },
+      { label: "Status", key: "status" },
+      { label: "Due Date", key: "due_date" },
+      { label: "Type", key: "type" },
+      { label: "Created At", key: "created_at" }
+    ];
+
+    exportToCSV(filteredLoans, headers, `progress-loans-${new Date().toISOString().split('T')[0]}.csv`);
+    toast.success("CSV export started");
+  };
+
   const currencies = [
     { code: "USD", symbol: "$", label: "US Dollar" },
     { code: "EUR", symbol: "€", label: "Euro" },
@@ -222,133 +239,204 @@ export function Dashboard() {
 
   const hasLoans = filteredLoans.length > 0;
 
+  if (isLoading) {
+    return <DashboardSkeleton />;
+  }
+
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Premium Header */}
-      <header className="relative overflow-hidden pt-8 pb-12 px-4 shadow-xl">
+      <header className="relative overflow-hidden pt-8 md:pt-10 pb-12 md:pb-16 px-4 md:px-6 shadow-2xl">
         {/* Animated Background Gradients */}
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-blue-600 to-violet-700">
-          <div className="absolute inset-0 opacity-30 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-700 via-blue-700 to-violet-800">
+          <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] pointer-events-none" />
           <motion.div
             animate={{
               scale: [1, 1.2, 1],
               rotate: [0, 90, 0],
-              opacity: [0.3, 0.5, 0.3]
+              opacity: [0.3, 0.4, 0.3]
             }}
-            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-            className="absolute -top-24 -right-24 w-96 h-96 bg-white/20 rounded-full blur-[100px]"
+            transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+            className="absolute -top-32 -right-32 w-[300px] md:w-[500px] h-[300px] md:h-[500px] bg-white/10 rounded-full blur-[80px] md:blur-[120px]"
           />
           <motion.div
             animate={{
               scale: [1, 1.3, 1],
               rotate: [0, -90, 0],
-              opacity: [0.2, 0.4, 0.2]
+              opacity: [0.2, 0.3, 0.2]
             }}
-            transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-            className="absolute -bottom-24 -left-24 w-80 h-80 bg-blue-400/20 rounded-full blur-[80px]"
+            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+            className="absolute -bottom-32 -left-32 w-[250px] md:w-[400px] h-[250px] md:h-[400px] bg-blue-400/10 rounded-full blur-[70px] md:blur-[100px]"
           />
         </div>
 
         <div className="max-w-2xl mx-auto relative z-10">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-2">
-              <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md border border-white/30">
-                <FileText className="w-5 h-5 text-white" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10 md:mb-12">
+            <div className="flex items-center justify-between sm:justify-start w-full sm:w-auto">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="flex items-center gap-2.5"
+              >
+                <div className="bg-white/15 p-2 rounded-xl backdrop-blur-xl border border-white/20 shadow-inner">
+                  <FileText className="w-4 h-4 text-white" />
+                </div>
+                <h1 className="text-lg font-bold text-white tracking-tight">Progress</h1>
+              </motion.div>
+
+              <div className="flex items-center gap-2.5 sm:hidden">
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative text-white hover:bg-white/15 rounded-xl h-10 w-10 border border-white/20 backdrop-blur-xl shadow-inner"
+                    onClick={() => setIsNotificationsOpen(true)}
+                  >
+                    <BellRing className="w-4 h-4" />
+                    {hasUnread && (
+                      <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-indigo-600 animate-pulse ring-2 ring-rose-500/20" />
+                    )}
+                  </Button>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-white hover:bg-white/15 rounded-xl h-10 w-10 border border-white/20 backdrop-blur-xl shadow-inner"
+                    onClick={() => navigate("/profile")}
+                  >
+                    <User className="w-4 h-4" />
+                  </Button>
+                </motion.div>
               </div>
-              <h1 className="text-xl font-bold text-white tracking-tight">Progress</h1>
             </div>
 
-            {/* Currency Selector */}
-            <div className="flex items-center gap-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-full p-1 self-center">
-              {currencies.slice(0, 3).map((c) => (
-                <button
-                  key={c.code}
-                  onClick={() => setCurrency(c.code)}
-                  className={cn(
-                    "px-3 py-1.5 rounded-full text-[10px] font-black transition-all",
-                    currency === c.code
-                      ? "bg-white text-indigo-600 shadow-lg scale-105"
-                      : "text-white/60 hover:text-white"
-                  )}
-                >
-                  {c.code}
-                </button>
-              ))}
-              <select
-                value={currencies.some(c => c.code === currency && currencies.indexOf(c) > 2) ? currency : ""}
-                onChange={(e) => e.target.value && setCurrency(e.target.value)}
-                className="bg-transparent text-white/60 text-[10px] font-bold px-2 outline-none appearance-none cursor-pointer hover:text-white"
+            <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+              {/* Refined Currency Selector */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex flex-1 sm:flex-initial items-center bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-0.5 gap-0.5"
               >
-                <option value="" disabled className="text-slate-900">More</option>
-                {currencies.slice(3).map(c => (
-                  <option key={c.code} value={c.code} className="text-slate-900">{c.code}</option>
+                {currencies.slice(0, 3).map((c) => (
+                  <motion.button
+                    key={c.code}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.96 }}
+                    onClick={() => setCurrency(c.code)}
+                    className={cn(
+                      "flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-[10px] font-black transition-all",
+                      currency === c.code
+                        ? "bg-white text-indigo-700 shadow-xl"
+                        : "text-white/60 hover:text-white"
+                    )}
+                  >
+                    {c.code}
+                  </motion.button>
                 ))}
-              </select>
-            </div>
+                <div className="w-px h-3 bg-white/20 mx-1 hidden sm:block" />
+                <div className="relative group px-2 sm:pr-2 hidden sm:block">
+                  <select
+                    value={currencies.some(c => c.code === currency && currencies.indexOf(c) > 2) ? currency : ""}
+                    onChange={(e) => e.target.value && setCurrency(e.target.value)}
+                    className="bg-transparent text-white/60 text-[10px] font-black outline-none appearance-none cursor-pointer hover:text-white pr-3"
+                  >
+                    <option value="" disabled className="text-slate-900">More</option>
+                    {currencies.slice(3).map(c => (
+                      <option key={c.code} value={c.code} className="text-slate-900">{c.code}</option>
+                    ))}
+                  </select>
+                  <Navigation className="w-2.5 h-2.5 text-white/40 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none group-hover:text-white transition-colors" />
+                </div>
+              </motion.div>
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative text-white hover:bg-white/10 rounded-full h-10 w-10 border border-white/20 backdrop-blur-sm"
-                onClick={() => setIsNotificationsOpen(true)}
-              >
-                <BellRing className="w-5 h-5" />
-                {hasUnread && (
-                  <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-rose-500 rounded-full border border-white animate-pulse" />
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-white hover:bg-white/10 rounded-full h-10 w-10 border border-white/20 backdrop-blur-sm"
-                onClick={() => navigate("/profile")}
-              >
-                <User className="w-5 h-5" />
-              </Button>
+              <div className="hidden sm:flex items-center gap-2.5">
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative text-white hover:bg-white/15 rounded-2xl h-11 w-11 border border-white/20 backdrop-blur-xl shadow-inner"
+                    onClick={() => setIsNotificationsOpen(true)}
+                  >
+                    <BellRing className="w-5 h-5" />
+                    {hasUnread && (
+                      <span className="absolute top-2.5 right-2.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-indigo-600 animate-pulse ring-2 ring-rose-500/20" />
+                    )}
+                  </Button>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-white hover:bg-white/15 rounded-2xl h-11 w-11 border border-white/20 backdrop-blur-xl shadow-inner"
+                    onClick={() => navigate("/profile")}
+                  >
+                    <User className="w-5 h-5" />
+                  </Button>
+                </motion.div>
+              </div>
             </div>
           </div>
 
-          {/* Net Balance Focus */}
+          {/* Elevated Net Balance Focus */}
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            key={currency} // Re-animate when currency changes
-            className="text-center mb-10"
+            key={currency}
+            className="text-center mb-10 md:mb-14"
           >
-            <p className="text-white/70 text-sm font-medium mb-1 uppercase tracking-widest text-[10px]">Net Position</p>
-            <h2 className="text-5xl font-bold text-white tracking-tighter tabular-nums">
-              {netBalance >= 0 ? "+" : "-"}{formatAmount(Math.abs(netBalance))}
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.8 }}
+              className="text-white text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] mb-2 md:mb-4"
+            >
+              Net Position
+            </motion.p>
+            <h2 className="text-5xl md:text-7xl font-black text-white tracking-tighter tabular-nums drop-shadow-2xl">
+              <span className="opacity-40">{netBalance >= 0 ? "+" : "-"}</span>
+              {formatAmount(Math.abs(netBalance)).replace(/[^\d]/g, '')}
+              <span className="text-2xl md:text-4xl align-top ml-1 opacity-60 leading-none">{currency}</span>
             </h2>
-            <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-[10px] text-white/90">
-              <div className={`w-1.5 h-1.5 rounded-full ${netBalance >= 0 ? 'bg-emerald-400' : 'bg-rose-400'} animate-pulse`} />
-              {activeLoansCount} Active Records
-            </div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="mt-4 md:mt-6 inline-flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-xl md:rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 text-[10px] md:text-[11px] font-black text-white/95 shadow-2xl"
+            >
+              <div className={`w-1.5 md:w-2 h-1.5 md:h-2 rounded-full ${netBalance >= 0 ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]' : 'bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.6)]'} animate-pulse`} />
+              {activeLoansCount} ACTIVE RECORDS
+            </motion.div>
           </motion.div>
 
-          {/* Glassmorphism Stats Grid */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Enhanced Glassmorphism Stats Grid */}
+          <div className="grid grid-cols-2 gap-3 md:gap-5">
             <motion.div
-              whileHover={{ y: -2 }}
-              className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 shadow-lg shadow-black/5"
+              initial={{ opacity: 0, x: -15 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 }}
+              whileHover={{ y: -2, backgroundColor: "rgba(255, 255, 255, 0.15)" }}
+              className="bg-white/10 backdrop-blur-2xl border border-white/20 rounded-2xl md:rounded-[2rem] p-4 md:p-5 shadow-2xl transition-colors cursor-default"
             >
-              <p className="text-white/60 text-[10px] uppercase font-bold tracking-wider mb-3">Owed to you</p>
+              <p className="text-white/50 text-[9px] md:text-[10px] uppercase font-black tracking-widest mb-2 md:mb-4">Owed to you</p>
               <div className="flex items-end justify-between">
-                <span className="text-xl font-bold text-white tabular-nums">{formatAmount(owedToYou)}</span>
-                <div className="w-6 h-6 rounded-lg bg-emerald-400/20 flex items-center justify-center">
-                  <Plus className="w-3 h-3 text-emerald-400" />
+                <span className="text-lg md:text-2xl font-black text-white tabular-nums">{formatAmount(owedToYou)}</span>
+                <div className="w-6 md:w-8 h-6 md:h-8 rounded-lg md:rounded-xl bg-emerald-400/20 flex items-center justify-center border border-emerald-400/20 shadow-inner">
+                  <Plus className="w-3 md:w-4 h-3 md:h-4 text-emerald-400" />
                 </div>
               </div>
             </motion.div>
             <motion.div
-              whileHover={{ y: -2 }}
-              className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 shadow-lg shadow-black/5"
+              initial={{ opacity: 0, x: 15 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.4 }}
+              whileHover={{ y: -2, backgroundColor: "rgba(255, 255, 255, 0.15)" }}
+              className="bg-white/10 backdrop-blur-2xl border border-white/20 rounded-2xl md:rounded-[2rem] p-4 md:p-5 shadow-2xl transition-colors cursor-default"
             >
-              <p className="text-white/60 text-[10px] uppercase font-bold tracking-wider mb-3">You owe</p>
+              <p className="text-white/50 text-[9px] md:text-[10px] uppercase font-black tracking-widest mb-2 md:mb-4">You owe</p>
               <div className="flex items-end justify-between">
-                <span className="text-xl font-bold text-white tabular-nums">{formatAmount(youOwe)}</span>
-                <div className="w-6 h-6 rounded-lg bg-rose-400/20 flex items-center justify-center">
-                  <div className="w-2.5 h-0.5 bg-rose-400 rounded-full" />
+                <span className="text-lg md:text-2xl font-black text-white tabular-nums">{formatAmount(youOwe)}</span>
+                <div className="w-6 md:w-8 h-6 md:h-8 rounded-lg md:rounded-xl bg-rose-400/20 flex items-center justify-center border border-rose-400/20 shadow-inner">
+                  <div className="w-2.5 md:w-3 h-0.5 bg-rose-400 rounded-full" />
                 </div>
               </div>
             </motion.div>
@@ -490,10 +578,21 @@ export function Dashboard() {
         </AnimatePresence>
 
         <div className="flex items-center justify-between mb-6 px-1">
-          <h2 className="text-[10px] items-center gap-1.5 flex uppercase font-bold tracking-widest text-muted-foreground">
-            Active Records
-            <span className="bg-muted px-1.5 py-0.5 rounded text-[9px] text-muted-foreground">{filteredLoans.length}</span>
-          </h2>
+          <div className="flex items-center gap-4">
+            <h2 className="text-[10px] items-center gap-1.5 flex uppercase font-bold tracking-widest text-muted-foreground">
+              Active Records
+              <span className="bg-muted px-1.5 py-0.5 rounded text-[9px] text-muted-foreground">{filteredLoans.length}</span>
+            </h2>
+            {filteredLoans.length > 0 && (
+              <button
+                onClick={handleExportCSV}
+                className="text-[10px] items-center gap-1 flex uppercase font-bold tracking-widest text-primary hover:opacity-70 transition-opacity"
+              >
+                <Download className="w-3 h-3" />
+                Export CSV
+              </button>
+            )}
+          </div>
           {(isLoading || searchQuery || activeFilter !== "all") && (
             <button
               onClick={() => { setSearchQuery(""); setActiveFilter("all"); }}
@@ -537,28 +636,23 @@ export function Dashboard() {
             </AnimatePresence>
           </div>
         ) : (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="py-12 px-4"
-          >
-            <div className="bg-white border border-dashed border-slate-200 rounded-[3rem] p-12 text-center flex flex-col items-center">
-              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-6">
-                <Search className="w-10 h-10 text-slate-200" />
-              </div>
-              <h3 className="text-xl font-black text-slate-900 mb-2">No records found</h3>
-              <p className="text-sm text-slate-400 font-medium max-w-[240px] leading-relaxed">
-                We couldn't find any loans matching your current search or filters.
-              </p>
-              <Button
-                variant="outline"
-                className="mt-8 rounded-xl border-slate-200 font-bold"
-                onClick={() => { setSearchQuery(""); setActiveFilter("all"); }}
-              >
-                Reset all filters
-              </Button>
-            </div>
-          </motion.div>
+          <EmptyState
+            icon={Search}
+            title="No records found"
+            description={searchQuery || activeFilter !== "all"
+              ? "We couldn't find any loans matching your current search or filters."
+              : "You haven't created any records yet. Start by creating your first loan record."}
+            actionLabel={searchQuery || activeFilter !== "all" ? "Reset all filters" : "Create your first loan"}
+            onAction={() => {
+              if (searchQuery || activeFilter !== "all") {
+                setSearchQuery("");
+                setActiveFilter("all");
+              } else {
+                navigate("/create-loan");
+              }
+            }}
+            className="py-12"
+          />
         )}
       </main>
 

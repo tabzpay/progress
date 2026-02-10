@@ -22,6 +22,10 @@ import { cn } from "../components/ui/utils";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
 
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { RegisterSchema, type RegisterFormData } from "../../lib/schemas";
+
 type Step = "credentials" | "profile" | "intent";
 
 export function Register() {
@@ -29,43 +33,51 @@ export function Register() {
     const [step, setStep] = useState<Step>("credentials");
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [errors, setErrors] = useState({ email: "", password: "", fullName: "", general: "" });
 
-    // Form State
-    const [formData, setFormData] = useState({
-        email: "",
-        password: "",
-        fullName: "",
-        phone: "",
-        intent: "" as "lend" | "borrow" | "explore" | ""
+    const {
+        register,
+        handleSubmit,
+        trigger,
+        watch,
+        setValue,
+        formState: { errors },
+    } = useForm<RegisterFormData>({
+        resolver: zodResolver(RegisterSchema),
+        defaultValues: {
+            email: "",
+            password: "",
+            full_name: "",
+            phone: "",
+            intent: undefined,
+        },
     });
 
-    const validateEmail = (email: string) => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-    };
+    const email = watch("email");
+    const password = watch("password");
+    const full_name = watch("full_name");
+    const phone = watch("phone");
+    const intent = watch("intent");
 
-    const handleRegister = async () => {
+    const handleRegister = async (data: RegisterFormData) => {
         setIsLoading(true);
-        setErrors(prev => ({ ...prev, general: "" }));
 
         try {
-            const { data, error } = await supabase.auth.signUp({
-                email: formData.email,
-                password: formData.password,
+            const { data: signUpData, error } = await supabase.auth.signUp({
+                email: data.email,
+                password: data.password,
                 options: {
                     data: {
-                        full_name: formData.fullName,
-                        phone: formData.phone,
-                        intent: formData.intent
+                        full_name: data.full_name,
+                        phone: data.phone,
+                        intent: data.intent
                     }
                 }
             });
 
             if (error) throw error;
 
-            if (data.user) {
-                if (data.session) {
+            if (signUpData.user) {
+                if (signUpData.session) {
                     toast.success("Account created! Welcome to Progress.");
                     navigate("/dashboard");
                 } else {
@@ -75,44 +87,23 @@ export function Register() {
             }
         } catch (error: any) {
             console.error("Registration error:", error);
-            setErrors(prev => ({ ...prev, general: error.message || "Failed to register" }));
             toast.error(error.message || "Registration failed");
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleNext = () => {
-        setErrors({ email: "", password: "", fullName: "", general: "" });
-
+    const handleNext = async () => {
         if (step === "credentials") {
-            // Validate credentials
-            let hasError = false;
-            if (!formData.email) {
-                setErrors(prev => ({ ...prev, email: "Email is required" }));
-                hasError = true;
-            } else if (!validateEmail(formData.email)) {
-                setErrors(prev => ({ ...prev, email: "Please enter a valid email" }));
-                hasError = true;
-            }
-
-            if (!formData.password || formData.password.length < 8) {
-                setErrors(prev => ({ ...prev, password: "Password must be at least 8 characters" }));
-                hasError = true;
-            }
-
-            if (hasError) return;
-            setStep("profile");
+            const isValid = await trigger(["email", "password"]);
+            if (isValid) setStep("profile");
         }
         else if (step === "profile") {
-            if (!formData.fullName) {
-                setErrors(prev => ({ ...prev, fullName: "Name is required" }));
-                return;
-            }
-            setStep("intent");
+            const isValid = await trigger(["full_name"]);
+            if (isValid) setStep("intent");
         }
         else {
-            handleRegister();
+            handleSubmit(handleRegister)();
         }
     };
 
@@ -124,6 +115,7 @@ export function Register() {
     // Password strength calculation
     const getPasswordStrength = (pwd: string) => {
         let strength = 0;
+        if (!pwd) return 0;
         if (pwd.length >= 8) strength++;
         if (pwd.length >= 12) strength++;
         if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) strength++;
@@ -132,7 +124,7 @@ export function Register() {
         return strength;
     };
 
-    const passwordStrength = getPasswordStrength(formData.password);
+    const passwordStrength = getPasswordStrength(password || "");
     const getStrengthLabel = () => {
         if (passwordStrength <= 1) return { label: "Weak", color: "bg-red-500" };
         if (passwordStrength <= 3) return { label: "Fair", color: "bg-orange-500" };
@@ -224,20 +216,18 @@ export function Register() {
                                             <Mail className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                                             <Input
                                                 id="email"
-                                                name="email"
                                                 type="email"
                                                 autoComplete="email"
                                                 placeholder="you@example.com"
-                                                className={`pl-10 h-12 ${errors.email ? 'border-red-500' : ''}`}
-                                                value={formData.email}
-                                                onChange={(e) => {
-                                                    setFormData({ ...formData, email: e.target.value });
-                                                    setErrors(prev => ({ ...prev, email: "" }));
-                                                }}
+                                                {...register("email")}
+                                                className={cn(
+                                                    "pl-10 h-12",
+                                                    errors.email && "border-red-500 bg-red-50/10"
+                                                )}
                                                 autoFocus
                                             />
                                         </div>
-                                        {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
+                                        {errors.email && <p className="text-sm text-red-500 font-medium ml-1">{errors.email.message}</p>}
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="password">Password</Label>
@@ -245,16 +235,14 @@ export function Register() {
                                             <Lock className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                                             <Input
                                                 id="password"
-                                                name="password"
                                                 type={showPassword ? "text" : "password"}
                                                 autoComplete="new-password"
-                                                className={`pl-10 pr-10 h-12 ${errors.password ? 'border-red-500' : ''}`}
                                                 placeholder="Min. 8 characters"
-                                                value={formData.password}
-                                                onChange={(e) => {
-                                                    setFormData({ ...formData, password: e.target.value });
-                                                    setErrors(prev => ({ ...prev, password: "" }));
-                                                }}
+                                                {...register("password")}
+                                                className={cn(
+                                                    "pl-10 pr-10 h-12",
+                                                    errors.password && "border-red-500 bg-red-50/10"
+                                                )}
                                             />
                                             <button
                                                 type="button"
@@ -264,8 +252,8 @@ export function Register() {
                                                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                                             </button>
                                         </div>
-                                        {errors.password && <p className="text-sm text-red-500">{errors.password}</p>}
-                                        {formData.password && (
+                                        {errors.password && <p className="text-sm text-red-500 font-medium ml-1">{errors.password.message}</p>}
+                                        {password && (
                                             <div className="space-y-2">
                                                 <div className="flex gap-1">
                                                     {[1, 2, 3, 4, 5].map((i) => (
@@ -289,7 +277,7 @@ export function Register() {
                                 <Button
                                     className="w-full h-12"
                                     onClick={handleNext}
-                                    disabled={!formData.email || formData.password.length < 8}
+                                    disabled={!email || (password?.length || 0) < 8}
                                 >
                                     Next Step <ArrowRight className="ml-2 w-4 h-4" />
                                 </Button>
@@ -323,19 +311,17 @@ export function Register() {
                                             <User className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                                             <Input
                                                 id="name"
-                                                name="name"
                                                 autoComplete="name"
                                                 placeholder="e.g. Alex Rivera"
-                                                className={`pl-10 h-12 ${errors.fullName ? 'border-red-500' : ''}`}
-                                                value={formData.fullName}
-                                                onChange={(e) => {
-                                                    setFormData({ ...formData, fullName: e.target.value });
-                                                    setErrors(prev => ({ ...prev, fullName: "" }));
-                                                }}
+                                                {...register("full_name")}
+                                                className={cn(
+                                                    "pl-10 h-12",
+                                                    errors.full_name && "border-red-500 bg-red-50/10"
+                                                )}
                                                 autoFocus
                                             />
                                         </div>
-                                        {errors.fullName && <p className="text-sm text-red-500">{errors.fullName}</p>}
+                                        {errors.full_name && <p className="text-sm text-red-500 font-medium ml-1">{errors.full_name.message}</p>}
                                     </div>
                                     <div className="space-y-2">
                                         <div className="flex justify-between items-center">
@@ -345,13 +331,11 @@ export function Register() {
                                             <Smartphone className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                                             <Input
                                                 id="phone"
-                                                name="tel"
                                                 type="tel"
                                                 autoComplete="tel"
-                                                className="pl-10 h-12"
                                                 placeholder="(555) 000-0000"
-                                                value={formData.phone}
-                                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                                {...register("phone")}
+                                                className="pl-10 h-12"
                                             />
                                         </div>
                                         <p className="text-xs text-muted-foreground">We'll only use this for important reminders you enable.</p>
@@ -361,7 +345,7 @@ export function Register() {
                                 <Button
                                     className="w-full h-12"
                                     onClick={handleNext}
-                                    disabled={!formData.fullName}
+                                    disabled={!full_name}
                                 >
                                     Next Step <ArrowRight className="ml-2 w-4 h-4" />
                                 </Button>
@@ -385,10 +369,10 @@ export function Register() {
 
                                 <div className="grid gap-4">
                                     <button
-                                        onClick={() => setFormData({ ...formData, intent: "lend" })}
+                                        onClick={() => setValue("intent", "lend")}
                                         className={cn(
                                             "flex items-start gap-4 p-4 rounded-xl border-2 text-left transition-all hover:bg-muted/50",
-                                            formData.intent === "lend" ? "border-primary bg-primary/5" : "border-border"
+                                            intent === "lend" ? "border-primary bg-primary/5" : "border-border"
                                         )}
                                     >
                                         <div className="bg-primary/10 p-2.5 rounded-lg flex-shrink-0">
@@ -397,17 +381,17 @@ export function Register() {
                                         <div>
                                             <div className="font-semibold text-lg flex items-center justify-between w-full">
                                                 I want to lend money
-                                                {formData.intent === 'lend' && <Check className="w-5 h-5 text-primary" />}
+                                                {intent === 'lend' && <Check className="w-5 h-5 text-primary" />}
                                             </div>
                                             <p className="text-muted-foreground text-sm mt-1">Track a loan I'm giving to a friend or family member.</p>
                                         </div>
                                     </button>
 
                                     <button
-                                        onClick={() => setFormData({ ...formData, intent: "borrow" })}
+                                        onClick={() => setValue("intent", "borrow")}
                                         className={cn(
                                             "flex items-start gap-4 p-4 rounded-xl border-2 text-left transition-all hover:bg-muted/50",
-                                            formData.intent === "borrow" ? "border-primary bg-primary/5" : "border-border"
+                                            intent === "borrow" ? "border-primary bg-primary/5" : "border-border"
                                         )}
                                     >
                                         <div className="bg-blue-500/10 p-2.5 rounded-lg flex-shrink-0">
@@ -416,17 +400,17 @@ export function Register() {
                                         <div>
                                             <div className="font-semibold text-lg flex items-center justify-between w-full">
                                                 I want to borrow money
-                                                {formData.intent === 'borrow' && <Check className="w-5 h-5 text-primary" />}
+                                                {intent === 'borrow' && <Check className="w-5 h-5 text-primary" />}
                                             </div>
                                             <p className="text-muted-foreground text-sm mt-1">Create a formal record for money I'm receiving.</p>
                                         </div>
                                     </button>
 
                                     <button
-                                        onClick={() => setFormData({ ...formData, intent: "explore" })}
+                                        onClick={() => setValue("intent", "explore")}
                                         className={cn(
                                             "flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all hover:bg-muted/50",
-                                            formData.intent === "explore" ? "border-primary bg-primary/5" : "border-border"
+                                            intent === "explore" ? "border-primary bg-primary/5" : "border-border"
                                         )}
                                     >
                                         <div className="bg-muted p-2.5 rounded-lg flex-shrink-0">
@@ -435,18 +419,17 @@ export function Register() {
                                         <div className="font-medium">
                                             Just looking around for now
                                         </div>
-                                        {formData.intent === 'explore' && <Check className="ml-auto w-5 h-5 text-primary" />}
+                                        {intent === 'explore' && <Check className="ml-auto w-5 h-5 text-primary" />}
                                     </button>
                                 </div>
 
                                 <Button
                                     className="w-full h-12"
                                     onClick={handleNext}
-                                    disabled={!formData.intent || isLoading}
+                                    disabled={!intent || isLoading}
                                 >
                                     {isLoading ? "creating account..." : "Finish Setup"}
                                 </Button>
-                                {errors.general && <p className="text-sm text-red-500 text-center">{errors.general}</p>}
                             </motion.div>
                         )}
                     </AnimatePresence>

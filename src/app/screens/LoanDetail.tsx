@@ -13,6 +13,7 @@ import { cn } from "../components/ui/utils";
 import { useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
+import { EmptyState } from "../components/EmptyState";
 
 export function LoanDetail() {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ export function LoanDetail() {
   const [loan, setLoan] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [isSendingReminder, setIsSendingReminder] = useState(false);
 
   useEffect(() => {
     fetchLoanDetail();
@@ -78,8 +80,6 @@ export function LoanDetail() {
   const paidAmount = loan.repayments?.reduce((sum: number, r: any) => sum + (Number(r.amount) || 0), 0) || 0;
   const remainingAmount = Math.max(0, loan.amount - paidAmount);
   const progress = (paidAmount / loan.amount) * 100;
-
-  const [isSendingReminder, setIsSendingReminder] = useState(false);
 
   const handleSendReminder = async (message: string) => {
     setIsSendingReminder(true);
@@ -329,9 +329,14 @@ export function LoanDetail() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12 px-6 bg-slate-50 rounded-[2rem] border border-dashed border-slate-200">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No payments recorded yet</p>
-              </div>
+              <EmptyState
+                icon={History}
+                title="Fresh Ledger"
+                description="No payments have been recorded for this agreement yet."
+                actionLabel="Record First Payment"
+                onAction={() => navigate(`/loan/${loan.id}/add-payment`)}
+                className="py-12 bg-slate-50 rounded-[2rem] border border-dashed border-slate-200"
+              />
             )}
           </motion.div>
 
@@ -377,9 +382,12 @@ export function LoanDetail() {
                   </div>
                 ))
               ) : (
-                <div className="pl-14 py-4">
-                  <p className="text-sm font-bold text-slate-300 uppercase tracking-widest text-center">No messages sent yet</p>
-                </div>
+                <EmptyState
+                  icon={MessageSquare}
+                  title="Quiet Channel"
+                  description="No formal reminders or notices have been sent for this record."
+                  className="py-8 bg-slate-50/50 rounded-3xl"
+                />
               )}
             </div>
           </motion.div>

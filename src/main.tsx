@@ -1,7 +1,10 @@
 
-  import { createRoot } from "react-dom/client";
-  import App from "./app/App.tsx";
-  import "./styles/index.css";
+import { createRoot } from "react-dom/client";
+import App from "./app/App.tsx";
+import "./styles/index.css";
+import { initAnalytics } from "./lib/analytics";
 
-  createRoot(document.getElementById("root")!).render(<App />);
-  
+// Initialize analytics
+initAnalytics();
+
+createRoot(document.getElementById("root")!).render(<App />);

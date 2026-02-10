@@ -33,3 +33,6 @@ dist-ssr
 # Gemini/Brain artifacts (if present in root, though usually outside)
 .gemini
 brain
+.md
+.sql
+.txt

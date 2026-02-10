@@ -1,4 +1,4 @@
-import { ArrowLeft, User, Phone, Bell, Globe, CreditCard, LogOut, ChevronRight, Settings, ShieldCheck, HelpCircle, Info } from "lucide-react";
+import { ArrowLeft, User, Phone, Bell, Globe, CreditCard, LogOut, ChevronRight, Settings, ShieldCheck, HelpCircle, Info, Moon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { Button } from "../components/ui/button";
@@ -8,6 +8,8 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
 import { ConfirmModal } from "../components/ConfirmModal";
+import { ThemeToggle } from "../components/ui/theme-toggle";
+import { analytics, identifyUser } from "../../lib/analytics";
 
 export function Profile() {
   const navigate = useNavigate();
@@ -22,6 +24,12 @@ export function Profile() {
       setUser(user);
 
       if (user) {
+        // Identify user in analytics
+        identifyUser(user.id, {
+          email: user.email,
+          phone: user.phone,
+        });
+
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
@@ -95,6 +103,14 @@ export function Profile() {
       value: "45 remaining",
       color: "bg-amber-100 text-amber-600",
       action: () => alert("Purchase SMS credits"),
+    },
+    {
+      icon: Moon,
+      label: "Theme",
+      value: "Light / Dark mode",
+      color: "bg-purple-100 text-purple-600",
+      action: undefined, // Handled by ThemeToggle
+      isToggle: true,
     },
     {
       icon: Globe,
@@ -211,20 +227,36 @@ export function Profile() {
             <h3 className="text-[11px] uppercase font-black tracking-[0.2em] text-slate-400 ml-4">General</h3>
             <div className="bg-white border border-slate-200/60 rounded-3xl overflow-hidden shadow-sm">
               {accountSettings.map((item, idx) => (
-                <button
-                  key={idx}
-                  onClick={item.action}
-                  className="w-full p-5 flex items-center gap-4 hover:bg-slate-50 transition-colors text-left border-b border-slate-100 last:border-0 group"
-                >
-                  <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center transition-transform group-active:scale-95 shadow-sm", item.color)}>
-                    <item.icon className="w-5 h-5" />
+                item.isToggle ? (
+                  <div
+                    key={idx}
+                    className="w-full p-5 flex items-center gap-4 border-b border-slate-100 last:border-0"
+                  >
+                    <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center shadow-sm", item.color)}>
+                      <item.icon className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-[15px] font-bold text-slate-900">{item.label}</div>
+                      <div className="text-xs font-semibold text-slate-400 mt-0.5">{item.value}</div>
+                    </div>
+                    <ThemeToggle />
                   </div>
-                  <div className="flex-1">
-                    <div className="text-[15px] font-bold text-slate-900">{item.label}</div>
-                    <div className="text-xs font-semibold text-slate-400 mt-0.5">{item.value}</div>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-primary transition-colors" />
-                </button>
+                ) : (
+                  <button
+                    key={idx}
+                    onClick={item.action}
+                    className="w-full p-5 flex items-center gap-4 hover:bg-slate-50 transition-colors text-left border-b border-slate-100 last:border-0 group"
+                  >
+                    <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center transition-transform group-active:scale-95 shadow-sm", item.color)}>
+                      <item.icon className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-[15px] font-bold text-slate-900">{item.label}</div>
+                      <div className="text-xs font-semibold text-slate-400 mt-0.5">{item.value}</div>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-primary transition-colors" />
+                  </button>
+                )
               ))}
             </div>
           </motion.div>

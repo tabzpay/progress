@@ -6,6 +6,7 @@ import { CreateLoan } from "./screens/CreateLoan";
 import { LoanDetail } from "./screens/LoanDetail";
 import { AddPayment } from "./screens/AddPayment";
 import { Groups } from "./screens/Groups";
+import { GroupDetail } from "./screens/GroupDetail";
 import { Profile } from "./screens/Profile";
 import { EditProfile } from "./screens/EditProfile";
 import { DesignSystem } from "./screens/DesignSystem";
@@ -28,6 +29,9 @@ import { ActivityLog } from "./screens/ActivityLog";
 import { Toaster } from "./components/ui/sonner";
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import { KeyboardShortcutsProvider } from "./components/KeyboardShortcutsProvider";
+import { CommandPalette } from "./components/CommandPalette";
+import { HelpModal } from "./components/HelpModal";
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -61,49 +65,54 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Marketing Pages */}
-        <Route path="/" element={<Landing />} />
-        <Route path="/features" element={<Features />} />
-        <Route path="/how-it-works" element={<HowItWorks />} />
-        <Route path="/pricing" element={<Pricing />} />
-        <Route path="/stories" element={<Stories />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/blog" element={<Blog />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/help" element={<HelpCenter />} />
-        <Route path="/privacy" element={<Privacy />} />
-        <Route path="/terms" element={<Terms />} />
+      <KeyboardShortcutsProvider>
+        <Routes>
+          {/* Marketing Pages */}
+          <Route path="/" element={<Landing />} />
+          <Route path="/features" element={<Features />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/pricing" element={<Pricing />} />
+          <Route path="/stories" element={<Stories />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/blog" element={<Blog />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/help" element={<HelpCenter />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
 
-        {/* Auth Routes */}
-        <Route path="/sign-in" element={<SignIn />} />
-        <Route path="/get-started" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/onboarding" element={<Onboarding />} />
+          {/* Auth Routes */}
+          <Route path="/sign-in" element={<SignIn />} />
+          <Route path="/get-started" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/onboarding" element={<Onboarding />} />
 
-        {/* Main App Routes */}
-        {isAuthenticated ? (
-          <>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/create-loan" element={<CreateLoan />} />
-            <Route path="/loan/:loanId" element={<LoanDetail />} />
-            <Route path="/loan/:loanId/add-payment" element={<AddPayment />} />
-            <Route path="/groups" element={<Groups />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/profile/edit" element={<EditProfile />} />
-            <Route path="/more" element={<MoreUtilities />} />
-            <Route path="/send-notice" element={<SendNotice />} />
-            <Route path="/activity-log" element={<ActivityLog />} />
-            <Route path="/design-system" element={<DesignSystem />} />
-          </>
-        ) : (
+          {/* Main App Routes */}
+          {isAuthenticated ? (
+            <>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/create-loan" element={<CreateLoan />} />
+              <Route path="/loan/:loanId" element={<LoanDetail />} />
+              <Route path="/loan/:loanId/add-payment" element={<AddPayment />} />
+              <Route path="/groups" element={<Groups />} />
+              <Route path="/groups/:groupId" element={<GroupDetail />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/profile/edit" element={<EditProfile />} />
+              <Route path="/more" element={<MoreUtilities />} />
+              <Route path="/send-notice" element={<SendNotice />} />
+              <Route path="/activity-log" element={<ActivityLog />} />
+              <Route path="/design-system" element={<DesignSystem />} />
+            </>
+          ) : (
+            <Route path="*" element={<Navigate to="/" replace />} />
+          )}
+
+          {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
-        )}
-
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-      <Toaster />
+        </Routes>
+        <Toaster />
+        <CommandPalette />
+        <HelpModal />
+      </KeyboardShortcutsProvider>
     </BrowserRouter>
   );
 }

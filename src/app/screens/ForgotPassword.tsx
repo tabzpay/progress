@@ -5,38 +5,48 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { motion } from "motion/react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ForgotPasswordSchema, type ForgotPasswordFormData } from "../../lib/schemas";
+import { cn } from "../components/ui/utils";
+import { supabase } from "../../lib/supabase";
+import { toast } from "sonner";
 
 export function ForgotPassword() {
-    const [email, setEmail] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitted, setIsSubmitted] = useState(false);
-    const [error, setError] = useState("");
 
-    const validateEmail = (email: string) => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-    };
+    const {
+        register,
+        handleSubmit,
+        watch,
+        formState: { errors },
+    } = useForm<ForgotPasswordFormData>({
+        resolver: zodResolver(ForgotPasswordSchema),
+        defaultValues: {
+            email: "",
+        },
+    });
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError("");
+    const emailValue = watch("email");
 
-        if (!email) {
-            setError("Email is required");
-            return;
-        }
-
-        if (!validateEmail(email)) {
-            setError("Please enter a valid email address");
-            return;
-        }
-
+    const handleResetSubmit = async (data: ForgotPasswordFormData) => {
         setIsLoading(true);
-        // Simulate API call
-        setTimeout(() => {
-            setIsLoading(false);
+        try {
+            const { error: resetError } = await supabase.auth.resetPasswordForEmail(data.email, {
+                redirectTo: `${window.location.origin}/reset-password`,
+            });
+
+            if (resetError) throw resetError;
+
             setIsSubmitted(true);
-        }, 1500);
+            toast.success("Reset link sent!");
+        } catch (error: any) {
+            console.error("Reset error:", error);
+            toast.error(error.message || "Failed to send reset link");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -115,27 +125,25 @@ export function ForgotPassword() {
                                 </p>
                             </div>
 
-                            <form onSubmit={handleSubmit} className="space-y-6">
+                            <form onSubmit={handleSubmit(handleResetSubmit)} className="space-y-6">
                                 <div className="space-y-2">
                                     <Label htmlFor="email">Email address</Label>
                                     <div className="relative">
                                         <Mail className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                                         <Input
                                             id="email"
-                                            name="email"
                                             type="email"
                                             autoComplete="email"
                                             placeholder="name@example.com"
-                                            className={`pl-10 h-12 ${error ? 'border-red-500' : ''}`}
-                                            value={email}
-                                            onChange={(e) => {
-                                                setEmail(e.target.value);
-                                                setError("");
-                                            }}
+                                            {...register("email")}
+                                            className={cn(
+                                                "pl-10 h-12",
+                                                errors.email && "border-red-500 bg-red-50/10"
+                                            )}
                                             autoFocus
                                         />
                                     </div>
-                                    {error && <p className="text-sm text-red-500">{error}</p>}
+                                    {errors.email && <p className="text-sm text-red-500 font-medium ml-1">{errors.email.message}</p>}
                                 </div>
 
                                 <Button
@@ -173,14 +181,14 @@ export function ForgotPassword() {
                                 <p className="text-muted-foreground">
                                     We've sent a password reset link to
                                 </p>
-                                <p className="font-medium text-foreground">{email}</p>
+                                <p className="font-medium text-foreground">{emailValue}</p>
                             </div>
 
                             <div className="bg-muted/50 border border-border rounded-lg p-4 text-sm text-left">
                                 <p className="font-medium mb-2">Didn't receive the email?</p>
                                 <ul className="space-y-1 text-muted-foreground">
                                     <li>• Check your spam/junk folder</li>
-                                    <li>• Make sure {email} is correct</li>
+                                    <li>• Make sure {emailValue} is correct</li>
                                     <li>• Wait a few minutes and check again</li>
                                 </ul>
                             </div>

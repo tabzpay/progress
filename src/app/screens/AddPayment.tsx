@@ -11,20 +11,38 @@ import { mockLoans, currentUser } from "../data/mockData";
 import { ProgressBar } from "../components/ProgressBar";
 import { cn } from "../components/ui/utils";
 import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { PaymentSchema, type PaymentFormData } from "../../lib/schemas";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
 
 export function AddPayment() {
   const navigate = useNavigate();
   const { loanId } = useParams();
-  const [amount, setAmount] = useState("");
-  const [note, setNote] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [loan, setLoan] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    setError,
+    clearErrors,
+    formState: { errors },
+  } = useForm<PaymentFormData>({
+    resolver: zodResolver(PaymentSchema),
+    defaultValues: {
+      amount: 0,
+      note: "",
+    },
+  });
+
+  const amount = watch("amount");
 
   useEffect(() => {
     fetchLoanData();
@@ -89,33 +107,27 @@ export function AddPayment() {
     }).format(num);
   };
 
-  const handleSubmit = async () => {
-    const paymentAmount = parseFloat(amount);
-    if (isNaN(paymentAmount) || paymentAmount <= 0) {
-      setError("Please enter a valid amount");
-      return;
-    }
-    if (paymentAmount > currentRemainingBalance) {
-      setError("Payment exceeds remaining balance");
+  const handlePaymentSubmit = async (data: PaymentFormData) => {
+    if (data.amount > currentRemainingBalance) {
+      setError("amount", { message: "Payment exceeds remaining balance" });
       return;
     }
 
     setIsSubmitting(true);
-    setError(null);
 
     try {
-      const { error } = await supabase
+      const { error: insertError } = await supabase
         .from('repayments')
         .insert([{
           loan_id: loanId,
-          amount: paymentAmount,
-          note: note || "Manual Payment Record"
+          amount: data.amount,
+          note: data.note || "Manual Payment Record"
         }]);
 
-      if (error) throw error;
+      if (insertError) throw insertError;
 
       // If fully paid, update loan status
-      if (paymentAmount >= currentRemainingBalance) {
+      if (data.amount >= currentRemainingBalance) {
         await supabase
           .from('loans')
           .update({ status: 'PAID' })
@@ -130,7 +142,7 @@ export function AddPayment() {
           .insert([{
             user_id: targetUserId,
             title: "Payment Received",
-            message: `${isLender ? "You" : otherPartyName} logged a payment of ${_getCurrencySymbol(loan.currency)}${paymentAmount}.`,
+            message: `${isLender ? "You" : otherPartyName} logged a payment of ${_getCurrencySymbol(loan.currency)}${data.amount}.`,
             type: 'payment',
             link_to: `/loan/${loanId}`
           }]);
@@ -152,7 +164,7 @@ export function AddPayment() {
     currentRemainingBalance,
   ].filter((amt, idx, arr) => amt > 0 && arr.indexOf(amt) === idx);
 
-  const remainingBalanceAfter = currentRemainingBalance - parseFloat(amount || "0");
+  const remainingBalanceAfter = currentRemainingBalance - (amount || 0);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-32">
@@ -190,37 +202,37 @@ export function AddPayment() {
           <div className="relative inline-block">
             <div className="text-[11px] uppercase font-black tracking-[0.2em] text-white/50 mb-1">Enter Amount</div>
             <motion.div
-              animate={error ? { x: [-5, 5, -5, 5, 0] } : {}}
+              animate={errors.amount ? { x: [-5, 5, -5, 5, 0] } : {}}
               className="flex items-center justify-center gap-1"
             >
               <span className={cn(
                 "text-4xl font-black tabular-nums transition-colors",
-                error ? "text-rose-300" : "text-white/40"
+                errors.amount ? "text-rose-300" : "text-white/40"
               )}>{_getCurrencySymbol(loan.currency || "USD")}</span>
               <input
                 type="number"
                 placeholder="0"
-                value={amount}
-                onChange={(e) => {
-                  setAmount(e.target.value);
-                  if (error) setError(null);
-                }}
+                {...register("amount", {
+                  onChange: (e) => {
+                    if (errors.amount) clearErrors("amount");
+                  }
+                })}
                 className={cn(
                   "bg-transparent border-none focus:outline-none text-7xl font-black tracking-tighter placeholder:text-white/20 w-[240px] text-center tabular-nums transition-colors",
-                  error ? "text-rose-100" : "text-white"
+                  errors.amount ? "text-rose-100" : "text-white"
                 )}
                 autoFocus
               />
             </motion.div>
             <AnimatePresence>
-              {error && (
+              {errors.amount && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap mt-2 bg-rose-500 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full shadow-lg"
                 >
-                  {error}
+                  {errors.amount.message}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -270,12 +282,12 @@ export function AddPayment() {
                   <button
                     key={idx}
                     onClick={() => {
-                      setAmount(amt.toString());
-                      if (error) setError(null);
+                      setValue("amount", amt);
+                      if (errors.amount) clearErrors("amount");
                     }}
                     className={cn(
                       "px-6 h-14 rounded-2xl font-black transition-all shadow-sm border shrink-0",
-                      amount === amt.toString()
+                      amount === amt
                         ? "bg-slate-900 text-white border-slate-900 scale-95 shadow-lg"
                         : "bg-white text-slate-900 border-slate-200 hover:border-indigo-300"
                     )}
@@ -299,8 +311,7 @@ export function AddPayment() {
               <textarea
                 id="note"
                 placeholder="What is this payment for? (optional)"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
+                {...register("note")}
                 className="w-full bg-transparent border-none focus:outline-none text-slate-600 font-medium resize-none h-24"
               />
             </div>
@@ -350,8 +361,8 @@ export function AddPayment() {
         <div className="max-w-xl mx-auto">
           <Button
             className="w-full h-18 rounded-[2rem] bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xl shadow-xl shadow-indigo-600/20 active:scale-[0.98] transition-all py-8"
-            onClick={handleSubmit}
-            disabled={!amount || parseFloat(amount) <= 0 || isSubmitting}
+            onClick={handleSubmit(handlePaymentSubmit)}
+            disabled={!amount || amount <= 0 || isSubmitting}
           >
             {isSubmitting ? "Saving Record..." : "Record Payment Detail"}
           </Button>
@@ -366,7 +377,7 @@ export function AddPayment() {
         message="The payment has been successfully logged against this loan."
         type="emerald"
         details={[
-          { label: "Amount Paid", value: formatAmount(parseFloat(amount)) },
+          { label: "Amount Paid", value: formatAmount(amount || 0) },
           { label: "Remaining", value: formatAmount(Math.max(0, remainingBalanceAfter)) },
           { label: "Recipient", value: otherPartyName }
         ]}

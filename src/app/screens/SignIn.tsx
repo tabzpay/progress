@@ -6,54 +6,42 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { motion } from "motion/react";
 
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { LoginSchema, type LoginFormData } from "../../lib/schemas";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
+import { cn } from "../components/ui/utils";
 
 export function SignIn() {
     const navigate = useNavigate();
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [errors, setErrors] = useState({ email: "", password: "", general: "" });
 
-    const validateEmail = (email: string) => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-    };
+    const {
+        register,
+        handleSubmit,
+        formState: { errors },
+    } = useForm<LoginFormData>({
+        resolver: zodResolver(LoginSchema),
+        defaultValues: {
+            email: "",
+            password: "",
+        },
+    });
 
-    const handleLogin = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setErrors({ email: "", password: "", general: "" });
-
-        // Validation
-        let hasError = false;
-        if (!email) {
-            setErrors(prev => ({ ...prev, email: "Email is required" }));
-            hasError = true;
-        } else if (!validateEmail(email)) {
-            setErrors(prev => ({ ...prev, email: "Please enter a valid email address" }));
-            hasError = true;
-        }
-
-        if (!password) {
-            setErrors(prev => ({ ...prev, password: "Password is required" }));
-            hasError = true;
-        }
-
-        if (hasError) return;
-
+    const handleLogin = async (data: LoginFormData) => {
         setIsLoading(true);
         try {
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
+            const { data: signInData, error } = await supabase.auth.signInWithPassword({
+                email: data.email,
+                password: data.password,
             });
 
             if (error) throw error;
 
-            if (data.session) {
+            if (signInData.session) {
                 toast.success("Welcome back!");
                 navigate("/dashboard");
             }
@@ -67,7 +55,6 @@ export function SignIn() {
                 message = error.message;
             }
 
-            setErrors(prev => ({ ...prev, general: message }));
             toast.error(message);
         } finally {
             setIsLoading(false);
@@ -142,27 +129,25 @@ export function SignIn() {
                         </p>
                     </div>
 
-                    <form onSubmit={handleLogin} className="space-y-6">
+                    <form onSubmit={handleSubmit(handleLogin)} className="space-y-6">
                         <div className="space-y-2">
                             <Label htmlFor="email">Email</Label>
                             <div className="relative">
                                 <Mail className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                                 <Input
                                     id="email"
-                                    name="email"
                                     type="email"
                                     autoComplete="email"
                                     placeholder="name@example.com"
-                                    className={`pl-10 h-12 ${errors.email ? 'border-red-500' : ''}`}
-                                    value={email}
-                                    onChange={(e) => {
-                                        setEmail(e.target.value);
-                                        setErrors(prev => ({ ...prev, email: "" }));
-                                    }}
+                                    {...register("email")}
+                                    className={cn(
+                                        "pl-10 h-12",
+                                        errors.email && "border-red-500 bg-red-50/10"
+                                    )}
                                     autoFocus
                                 />
                             </div>
-                            {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
+                            {errors.email && <p className="text-sm text-red-500 font-medium ml-1">{errors.email.message}</p>}
                         </div>
 
                         <div className="space-y-2">
@@ -176,15 +161,13 @@ export function SignIn() {
                                 <Lock className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                                 <Input
                                     id="password"
-                                    name="password"
                                     type={showPassword ? "text" : "password"}
                                     autoComplete="current-password"
-                                    className={`pl-10 pr-10 h-12 ${errors.password ? 'border-red-500' : ''}`}
-                                    value={password}
-                                    onChange={(e) => {
-                                        setPassword(e.target.value);
-                                        setErrors(prev => ({ ...prev, password: "" }));
-                                    }}
+                                    {...register("password")}
+                                    className={cn(
+                                        "pl-10 pr-10 h-12",
+                                        errors.password && "border-red-500 bg-red-50/10"
+                                    )}
                                 />
                                 <button
                                     type="button"
@@ -194,7 +177,7 @@ export function SignIn() {
                                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                                 </button>
                             </div>
-                            {errors.password && <p className="text-sm text-red-500">{errors.password}</p>}
+                            {errors.password && <p className="text-sm text-red-500 font-medium ml-1">{errors.password.message}</p>}
                         </div>
 
                         <div className="flex items-center">

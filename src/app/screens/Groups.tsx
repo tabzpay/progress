@@ -1,4 +1,4 @@
-import { ArrowLeft, Users, Plus, ChevronRight, BellRing } from "lucide-react";
+import { ArrowLeft, Users, Plus, ChevronRight, BellRing, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "../components/ui/button";
@@ -9,6 +9,7 @@ import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { exportToCSV } from "../../lib/csvExport";
 
 export function Groups() {
   const navigate = useNavigate();
@@ -87,6 +88,22 @@ export function Groups() {
     }
   };
 
+  const handleExportCSV = () => {
+    const headers = [
+      { label: "Group Name", key: "name" },
+      { label: "Members Count", key: "member_count" },
+      { label: "Created At", key: "created_at" }
+    ];
+
+    const exportData = groups.map(g => ({
+      ...g,
+      member_count: g.group_members?.length || 0
+    }));
+
+    exportToCSV(exportData, headers, `progress-groups-${new Date().toISOString().split('T')[0]}.csv`);
+    toast.success("CSV export started");
+  };
+
   const hasGroups = groups.length > 0;
 
   const containerVariants = {
@@ -130,12 +147,22 @@ export function Groups() {
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            <div>
+            <div className="flex-1">
               <h1 className="text-2xl font-black tracking-tight">Your Groups</h1>
               <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mt-1">
                 Collaborative Records
               </p>
             </div>
+            {hasGroups && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-white hover:bg-white/10 rounded-full h-10 w-10 border border-white/20 backdrop-blur-sm shrink-0"
+                onClick={handleExportCSV}
+              >
+                <Download className="w-5 h-5" />
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -180,7 +207,7 @@ export function Groups() {
                     size="icon"
                     variant="ghost"
                     className="rounded-xl bg-slate-50 text-slate-400 hover:text-primary hover:bg-primary/5 transition-all"
-                    onClick={() => toast.info("Detailed group view coming soon")}
+                    onClick={() => navigate(`/groups/${group.id}`)}
                   >
                     <ChevronRight className="w-5 h-5" />
                   </Button>
@@ -210,9 +237,9 @@ export function Groups() {
 
                 <Button
                   className="w-full mt-6 h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold transition-all shadow-lg hover:shadow-xl active:scale-[0.98]"
-                  onClick={() => toast.info("Settlements coming in next update")}
+                  onClick={() => navigate(`/groups/${group.id}`)}
                 >
-                  View Full Settlements
+                  View Group Details
                 </Button>
               </motion.div>
             ))}
@@ -220,10 +247,11 @@ export function Groups() {
         ) : (
           <EmptyState
             icon={Users}
-            title="Isolated Economy?"
-            description="Groups help you track shared food, rent, or collaborative projects effortlessly."
-            actionLabel="Create First Group"
+            title="Beyond Boundaries"
+            description="Groups help you track shared expenses, collaborative investments, or community projects effortlessly."
+            actionLabel="Initialize First Group"
             onAction={() => setIsCreateModalOpen(true)}
+            className="py-20"
           />
         )}
       </main>

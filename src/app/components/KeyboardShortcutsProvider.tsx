@@ -1,0 +1,11 @@
+import { ReactNode } from "react";
+import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
+
+interface KeyboardShortcutsProviderProps {
+    children: ReactNode;
+}
+
+export function KeyboardShortcutsProvider({ children }: KeyboardShortcutsProviderProps) {
+    useKeyboardShortcuts();
+    return <>{children}</>;
+}
