@@ -9,9 +9,11 @@ import { Textarea } from "../components/ui/textarea";
 import { cn } from "../components/ui/utils";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
+import { useAuth } from "../../lib/contexts/AuthContext";
 import { processReminderSchedules } from "../../lib/reminderEngine";
 
 export function ReminderSettings() {
+    const { user } = useAuth();
     const navigate = useNavigate();
     const [templates, setTemplates] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -52,7 +54,6 @@ export function ReminderSettings() {
 
         setIsSaving(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("Not authenticated");
 
             const { error } = await supabase

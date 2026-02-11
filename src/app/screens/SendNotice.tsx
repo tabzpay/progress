@@ -8,14 +8,16 @@ import { cn } from "../components/ui/utils";
 import { useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
+import { useAuth } from "../../lib/contexts/AuthContext";
 
 export function SendNotice() {
+    const { user } = useAuth();
     const navigate = useNavigate();
     const [selectedLoanId, setSelectedLoanId] = useState<string | null>(null);
     const [isSent, setIsSent] = useState(false);
     const [actionableLoans, setActionableLoans] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [userId, setUserId] = useState<string | null>(null);
+    const userId = user?.id;
 
     const [schedules, setSchedules] = useState<any[]>([]);
     const [isScheduling, setIsScheduling] = useState(false);
@@ -64,11 +66,7 @@ export function SendNotice() {
     async function fetchActionableLoans() {
         setIsLoading(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            setUserId(user?.id || null);
-
             if (!user) return;
-
             const { data, error } = await supabase
                 .from('loans')
                 .select('*')

@@ -7,24 +7,26 @@ import { cn } from "../components/ui/utils";
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
+import { useAuth } from "../../lib/contexts/AuthContext";
 
 export function ActivityLog() {
+    const { user } = useAuth();
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState("");
     const [activities, setActivities] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [userId, setUserId] = useState<string | null>(null);
+    const userId = user?.id;
 
     useEffect(() => {
-        fetchActivities();
-    }, []);
+        if (user) {
+            fetchActivities();
+        }
+    }, [user]);
 
     async function fetchActivities() {
         setIsLoading(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
-            setUserId(user.id);
 
             // Fetch dedicated activity logs
             const { data: auditLogs, error: auditError } = await supabase

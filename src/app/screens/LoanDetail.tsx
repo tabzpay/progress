@@ -13,6 +13,7 @@ import { cn } from "../components/ui/utils";
 import { useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
+import { useAuth } from "../../lib/contexts/AuthContext";
 import { EmptyState } from "../components/EmptyState";
 import { FileUploader } from "../components/FileUploader";
 import { DocumentList } from "../components/DocumentList";
@@ -23,6 +24,7 @@ import { getPrivacyKey } from "../../lib/privacyKeyStore";
 import { generateLoanReport } from "../../lib/pdfGenerator";
 
 export function LoanDetail() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { loanId } = useParams();
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
@@ -30,7 +32,7 @@ export function LoanDetail() {
   const [shareUrl, setShareUrl] = useState("");
   const [loan, setLoan] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
+  const userId = user?.id;
   const [isSendingReminder, setIsSendingReminder] = useState(false);
   const [showUpload, setShowUpload] = useState(false);
   const [uploadCategory, setUploadCategory] = useState<"agreement" | "receipt" | "identity" | "other">("agreement");
@@ -44,9 +46,7 @@ export function LoanDetail() {
   async function fetchLoanDetail() {
     setIsLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUserId(user?.id || null);
-
+      if (!user) return;
       const { data, error } = await supabase
         .from('loans')
         .select('*, repayments(*), reminders(*)')

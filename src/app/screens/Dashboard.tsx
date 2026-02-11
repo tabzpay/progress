@@ -1,6 +1,6 @@
 import { Plus, DollarSign, FileText, Menu, User, Search, Filter, ArrowRight, BellRing, UserPlus, HeartPulse, AlertTriangle, CheckCircle2, Navigation, Download, Tag } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { LoanCard } from "../components/LoanCard";
 import { PersonalScoreCard } from "../components/PersonalScoreCard";
@@ -13,7 +13,6 @@ import { Label } from "../components/ui/label";
 import { mockLoans, currentUser, Loan, mockNotifications } from "../data/mockData";
 import { NotificationHub } from "../components/NotificationHub";
 import { cn } from "../components/ui/utils";
-import { useEffect } from "react";
 import { analytics } from "../../lib/analytics";
 import { secureDecrypt, isEncrypted } from "../../lib/encryption";
 import { getPrivacyKey } from "../../lib/privacyKeyStore";
@@ -23,10 +22,12 @@ import { DashboardSkeleton } from "../components/Skeletons";
 import { exportToCSV } from "../../lib/csvExport";
 import { requestNotificationPermission, notifyIfPossible } from "../../lib/notifications";
 import { LendingTrendChart, StatusDistributionChart, BorrowerConcentrationChart, CashFlowForecastChart } from "../components/AnalyticsCharts";
-import { ChevronDown, ChevronUp, BarChart } from "lucide-react";
+import { ChevronDown, ChevronUp, BarChart, PieChart } from "lucide-react";
 import { calculateCreditScore, type CreditScoreResult } from "../../lib/CreditScore";
+import { useAuth } from "../../lib/contexts/AuthContext";
 
 export function Dashboard() {
+  const { user, signOut: logOut } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<"all" | "lent" | "borrowed">("all");
@@ -35,7 +36,7 @@ export function Dashboard() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loans, setLoans] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
+  const userId = user?.id;
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [creditScores, setCreditScores] = useState<Record<string, CreditScoreResult>>({});
@@ -155,37 +156,33 @@ export function Dashboard() {
   const hasUnread = notifications.some(n => !n.is_read);
 
   useEffect(() => {
+    if (!user) return;
+
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-        fetchLoans();
-        fetchNotifications(user.id);
-        fetchContacts(user.id);
-        const unsubscribeNotifications = subscribeToNotifications(user.id);
-        const unsubscribeData = subscribeToDataChanges(user.id);
+      fetchLoans();
+      fetchNotifications(user!.id);
+      fetchContacts(user!.id);
+      const unsubscribeNotifications = subscribeToNotifications(user!.id);
+      const unsubscribeData = subscribeToDataChanges(user!.id);
 
-        // Fetch user's own credit score
-        try {
-          const score = await calculateCreditScore(user.id);
-          setUserCreditScore(score);
-        } catch (err) {
-          console.error("Error fetching user credit score:", err);
-        }
-
-        // Request browser notification permission
-        requestNotificationPermission();
-
-        return () => {
-          unsubscribeNotifications();
-          unsubscribeData();
-        };
-      } else {
-        setIsLoading(false);
+      // Fetch user's own credit score
+      try {
+        const score = await calculateCreditScore(user!.id);
+        setUserCreditScore(score);
+      } catch (err) {
+        console.error("Error fetching user credit score:", err);
       }
+
+      // Request browser notification permission
+      requestNotificationPermission();
+
+      return () => {
+        unsubscribeNotifications();
+        unsubscribeData();
+      };
     }
     init();
-  }, []);
+  }, [user]);
 
   function subscribeToDataChanges(uid: string) {
     const channel = supabase
@@ -381,7 +378,11 @@ export function Dashboard() {
       setUpcomingInstallments(borrowerInstallments);
 
       // Fetch credit scores for all borrowers
-      const borrowerIds = Array.from(new Set(loansWithDecryption.map(l => l.borrower_id)));
+      const borrowerIds = Array.from(new Set(
+        loansWithDecryption
+          .map(l => l.borrower_id)
+          .filter(id => !!id && id !== "null" && id !== "undefined" && typeof id === 'string')
+      )) as string[];
       fetchCreditScores(borrowerIds);
     } catch (error: any) {
       console.error("Error fetching loans:", error);
@@ -578,7 +579,7 @@ export function Dashboard() {
                 className="flex items-center gap-2.5"
               >
                 <div className="bg-white/15 p-2 rounded-xl backdrop-blur-xl border border-white/20 shadow-inner">
-                  <FileText className="w-4 h-4 text-white" />
+                  <PieChart className="w-4 h-4 text-white" />
                 </div>
                 <h1 className="text-lg font-bold text-white tracking-tight">Progress</h1>
               </motion.div>

@@ -17,15 +17,17 @@ import { PaymentSchema, type PaymentFormData } from "../../lib/schemas";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
 import { logActivity } from "../../lib/logger";
+import { useAuth } from "../../lib/contexts/AuthContext";
 
 export function AddPayment() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const { loanId } = useParams();
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [loan, setLoan] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
+  const userId = user?.id;
 
   const {
     register,
@@ -52,9 +54,7 @@ export function AddPayment() {
   async function fetchLoanData() {
     setIsLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUserId(user?.id || null);
-
+      if (!user) return;
       const { data, error } = await supabase
         .from('loans')
         .select('*, repayments(*)')

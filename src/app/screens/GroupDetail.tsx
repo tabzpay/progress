@@ -7,10 +7,12 @@ import { EmptyState } from "../components/EmptyState";
 import { cn } from "../components/ui/utils";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
+import { useAuth } from "../../lib/contexts/AuthContext";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 
 export function GroupDetail() {
+    const { user } = useAuth();
     const { groupId } = useParams();
     const navigate = useNavigate();
     const [group, setGroup] = useState<any>(null);
@@ -20,7 +22,7 @@ export function GroupDetail() {
     const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
     const [newMemberEmail, setNewMemberEmail] = useState("");
     const [isAddingMember, setIsAddingMember] = useState(false);
-    const [userId, setUserId] = useState<string | null>(null);
+    const userId = user?.id;
 
     useEffect(() => {
         fetchGroupDetails();
@@ -28,10 +30,7 @@ export function GroupDetail() {
 
     async function fetchGroupDetails() {
         try {
-            const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
-            setUserId(user.id);
-
             if (!groupId) return;
 
             // Fetch Group Info & Members

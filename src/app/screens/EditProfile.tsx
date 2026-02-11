@@ -13,8 +13,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { ProfileSchema, type ProfileFormData } from "../../lib/schemas";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
+import { useAuth } from "../../lib/contexts/AuthContext";
 
 export function EditProfile() {
+    const { user } = useAuth();
     const navigate = useNavigate();
     const [isSuccessOpen, setIsSuccessOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -39,24 +41,19 @@ export function EditProfile() {
     const email = watch("email");
 
     useEffect(() => {
-        async function getProfile() {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                reset({
-                    full_name: user.user_metadata?.full_name || "",
-                    phone: user.phone || "",
-                    email: user.email || "",
-                });
-            }
-            setIsLoading(false);
+        if (user) {
+            reset({
+                full_name: user.user_metadata?.full_name || "",
+                phone: user.phone || "",
+                email: user.email || "",
+            });
         }
-        getProfile();
-    }, [reset]);
+        setIsLoading(false);
+    }, [user, reset]);
 
     const handleSave = async (data: ProfileFormData) => {
         setIsSaving(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error("No user session");
 
             const { error: authError } = await supabase.auth.updateUser({

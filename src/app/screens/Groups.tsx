@@ -10,26 +10,28 @@ import { toast } from "sonner";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { exportToCSV } from "../../lib/csvExport";
+import { useAuth } from "../../lib/contexts/AuthContext";
 
 export function Groups() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [groups, setGroups] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
+  const userId = user?.id;
 
   useEffect(() => {
-    fetchGroups();
-  }, []);
+    if (user) {
+      fetchGroups();
+    }
+  }, [user]);
 
   async function fetchGroups() {
     setIsLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      setUserId(user.id);
 
       const { data, error } = await supabase
         .from('groups')
@@ -50,7 +52,6 @@ export function Groups() {
     if (!newGroupName.trim()) return;
     setIsSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No user found");
 
       // 1. Create the group

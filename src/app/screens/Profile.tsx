@@ -11,44 +11,44 @@ import { ConfirmModal } from "../components/ConfirmModal";
 import { ThemeToggle } from "../components/ui/theme-toggle";
 import { PurchaseCreditsModal } from "../components/PurchaseCreditsModal";
 import { analytics, identifyUser } from "../../lib/analytics";
+import { useAuth } from "../../lib/contexts/AuthContext";
 
 export function Profile() {
+  const { user, signOut: logOut } = useAuth();
   const navigate = useNavigate();
-  const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
 
   useEffect(() => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+
     async function fetchData() {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+      // Identify user in analytics
+      identifyUser(user!.id, {
+        email: user!.email,
+        phone: user!.phone,
+      });
 
-      if (user) {
-        // Identify user in analytics
-        identifyUser(user.id, {
-          email: user.email,
-          phone: user.phone,
-        });
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user!.id)
+        .single();
 
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        if (!error) setProfile(data);
-      }
+      if (!error) setProfile(data);
       setIsLoading(false);
     }
     fetchData();
-  }, []);
+  }, [user]);
 
   const handleSignOut = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await logOut();
       toast.success("Signed out successfully");
       navigate("/sign-in");
     } catch (error: any) {

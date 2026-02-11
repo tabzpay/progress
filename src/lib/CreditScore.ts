@@ -35,7 +35,18 @@ interface LoanRecord {
  * - Total volume processed: 20%
  * - Relationship duration: 10%
  */
-export async function calculateCreditScore(borrowerId: string): Promise<CreditScoreResult> {
+export async function calculateCreditScore(borrowerId: string | null): Promise<CreditScoreResult> {
+    const defaultScore: CreditScoreResult = {
+        score: 0,
+        tier: "Bronze",
+        factors: { onTimePaymentRate: 0, loanCompletionRate: 0, totalVolumeNormalized: 0, relationshipDuration: 0 },
+        trend: "stable"
+    };
+
+    if (!borrowerId || borrowerId === 'null' || borrowerId === 'undefined') {
+        return defaultScore;
+    }
+
     // Fetch all loans for this borrower
     const { data: loans, error } = await supabase
         .from('loans')

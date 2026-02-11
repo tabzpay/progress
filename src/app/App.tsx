@@ -31,98 +31,87 @@ import SecuritySettings from "./screens/SecuritySettings";
 import MFAVerify from "./screens/MFAVerify";
 import { AnalyticsDashboard } from "./screens/AnalyticsDashboard";
 import { Toaster } from "./components/ui/sonner";
-import { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
 import { KeyboardShortcutsProvider } from "./components/KeyboardShortcutsProvider";
 import { CommandPalette } from "./components/CommandPalette";
 import { HelpModal } from "./components/HelpModal";
 import { BottomNav } from "./components/BottomNav";
+import { AuthProvider, useAuth } from "../lib/contexts/AuthContext";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
-export default function App() {
-  const [session, setSession] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then((res: { data: { session: any } }) => {
-      setSession(res.data.session);
-      setIsLoading(false);
-    });
-
-    // Listen for changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: any) => {
-      setSession(session);
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
+function AppRoutes() {
+  const { session } = useAuth();
   const isAuthenticated = !!session;
 
   return (
+    <Routes>
+      {/* Marketing Pages */}
+      <Route path="/" element={<Landing />} />
+      <Route path="/features" element={<Features />} />
+      <Route path="/how-it-works" element={<HowItWorks />} />
+      <Route path="/pricing" element={<Pricing />} />
+      <Route path="/stories" element={<Stories />} />
+      <Route path="/about" element={<About />} />
+      <Route path="/blog" element={<Blog />} />
+      <Route path="/contact" element={<Contact />} />
+      <Route path="/help" element={<HelpCenter />} />
+      <Route path="/privacy" element={<Privacy />} />
+      <Route path="/terms" element={<Terms />} />
+
+      {/* Auth Routes */}
+      <Route path="/sign-in" element={<SignIn />} />
+      <Route path="/get-started" element={<Register />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/onboarding" element={<Onboarding />} />
+
+      {/* Main App Routes - Tightened with ProtectedRoute */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/analytics" element={<AnalyticsDashboard />} />
+        <Route path="/create-loan" element={<CreateLoan />} />
+        <Route path="/loan/:loanId" element={<LoanDetail />} />
+        <Route path="/loan/:loanId/add-payment" element={<AddPayment />} />
+        <Route path="/groups" element={<Groups />} />
+        <Route path="/groups/:groupId" element={<GroupDetail />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/profile/edit" element={<EditProfile />} />
+        <Route path="/more" element={<MoreUtilities />} />
+        <Route path="/send-notice" element={<SendNotice />} />
+        <Route path="/activity-log" element={<ActivityLog />} />
+        <Route path="/reminder-settings" element={<ReminderSettings />} />
+        <Route path="/security-settings" element={<SecuritySettings />} />
+        <Route path="/mfa-verify" element={<MFAVerify />} />
+        <Route path="/design-system" element={<DesignSystem />} />
+      </Route>
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/"} replace />} />
+    </Routes>
+  );
+}
+
+function GlobalUI() {
+  const { session } = useAuth();
+  const isAuthenticated = !!session;
+
+  return (
+    <>
+      <Toaster />
+      <CommandPalette />
+      <HelpModal />
+      {isAuthenticated && <BottomNav />}
+    </>
+  );
+}
+
+export default function App() {
+  return (
     <BrowserRouter>
-      <KeyboardShortcutsProvider>
-        <Routes>
-          {/* Marketing Pages */}
-          <Route path="/" element={<Landing />} />
-          <Route path="/features" element={<Features />} />
-          <Route path="/how-it-works" element={<HowItWorks />} />
-          <Route path="/pricing" element={<Pricing />} />
-          <Route path="/stories" element={<Stories />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/blog" element={<Blog />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/help" element={<HelpCenter />} />
-          <Route path="/privacy" element={<Privacy />} />
-          <Route path="/terms" element={<Terms />} />
-
-          {/* Auth Routes */}
-          <Route path="/sign-in" element={<SignIn />} />
-          <Route path="/get-started" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-
-          {/* Main App Routes */}
-          {isAuthenticated ? (
-            <>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/analytics" element={<AnalyticsDashboard />} />
-              <Route path="/create-loan" element={<CreateLoan />} />
-              <Route path="/loan/:loanId" element={<LoanDetail />} />
-              <Route path="/loan/:loanId/add-payment" element={<AddPayment />} />
-              <Route path="/groups" element={<Groups />} />
-              <Route path="/groups/:groupId" element={<GroupDetail />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/profile/edit" element={<EditProfile />} />
-              <Route path="/more" element={<MoreUtilities />} />
-              <Route path="/send-notice" element={<SendNotice />} />
-              <Route path="/activity-log" element={<ActivityLog />} />
-              <Route path="/reminder-settings" element={<ReminderSettings />} />
-              <Route path="/security-settings" element={<SecuritySettings />} />
-              <Route path="/mfa-verify" element={<MFAVerify />} />
-              <Route path="/design-system" element={<DesignSystem />} />
-            </>
-          ) : (
-            <Route path="*" element={<Navigate to="/" replace />} />
-          )}
-
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-        <Toaster />
-        <CommandPalette />
-        <HelpModal />
-        {isAuthenticated && <BottomNav />}
-      </KeyboardShortcutsProvider>
+      <AuthProvider>
+        <KeyboardShortcutsProvider>
+          <AppRoutes />
+          <GlobalUI />
+        </KeyboardShortcutsProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

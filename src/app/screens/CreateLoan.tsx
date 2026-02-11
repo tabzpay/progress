@@ -21,10 +21,12 @@ import { analytics } from "../../lib/analytics";
 import { logActivity } from "../../lib/logger";
 import { secureEncrypt } from "../../lib/encryption";
 import { getPrivacyKey } from "../../lib/privacyKeyStore";
+import { useAuth } from "../../lib/contexts/AuthContext";
 
 type LoanType = "personal" | "business" | "group";
 
 export function CreateLoan() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState(0);
@@ -85,10 +87,9 @@ export function CreateLoan() {
   const allValues = watch();
 
   useEffect(() => {
-    const init = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    if (!user) return;
 
+    const init = async () => {
       const savedDraft = localStorage.getItem(`loan_draft_${user.id}`);
       if (savedDraft) {
         try {
@@ -126,8 +127,6 @@ export function CreateLoan() {
 
     // Fetch contacts for autocomplete
     const fetchContacts = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
       const { data } = await supabase
         .from('contacts')
         .select('*')
@@ -136,13 +135,12 @@ export function CreateLoan() {
       if (data) setContacts(data);
     };
     fetchContacts();
-  }, [setValue]);
+  }, [user, setValue]);
 
   useEffect(() => {
-    const saveDraft = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    if (!user) return;
 
+    const saveDraft = async () => {
       const draft = {
         formData: allValues,
         bankName,

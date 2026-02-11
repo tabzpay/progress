@@ -23,10 +23,12 @@ import {
 } from '../components/AnalyticsCharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Card } from '../components/ui/card';
+import { useAuth } from '../../lib/contexts/AuthContext';
 
 export function AnalyticsDashboard() {
+    const { user } = useAuth();
     const navigate = useNavigate();
-    const [userId, setUserId] = useState<string | null>(null);
+    const userId = user?.id;
     const [currency, setCurrency] = useState('$');
     const [isLoading, setIsLoading] = useState(true);
 
@@ -37,16 +39,10 @@ export function AnalyticsDashboard() {
     const [statusDistribution, setStatusDistribution] = useState<StatusDistribution[]>([]);
     const [borrowerConcentration, setBorrowerConcentration] = useState<BorrowerConcentration[]>([]);
 
-    // Get current user
+    // Get current user removed because it's handled by useAuth
     useEffect(() => {
-        const fetchUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                setUserId(user.id);
-            }
-        };
-        fetchUser();
-    }, []);
+        // userId dependency in next hook will handle fetching data when user is available
+    }, [user]);
 
     // Fetch analytics data
     useEffect(() => {
