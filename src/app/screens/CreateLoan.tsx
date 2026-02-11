@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { ArrowLeft, Check, User, Briefcase, Users, DollarSign, Calendar, FileText, ChevronRight, BellRing, BookmarkPlus, Sparkles } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { ArrowLeft, Check, User, Briefcase, Users, DollarSign, Calendar, FileText, ChevronRight, BellRing, BookmarkPlus, Sparkles, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -77,6 +77,10 @@ export function CreateLoan() {
   const [paymentPlan, setPaymentPlan] = useState<PlanConfig | null>(null);
   const [repaymentSchedule, setRepaymentSchedule] = useState<"one_time" | "installments">("one_time");
 
+  // Contacts for Autocomplete
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [showAutocomplete, setShowAutocomplete] = useState(false);
+
   // Autosave Logic
   const allValues = watch();
 
@@ -112,6 +116,26 @@ export function CreateLoan() {
       }
     };
     init();
+
+    // Handle ?borrower=Name query parameter
+    const params = new URLSearchParams(window.location.search);
+    const borrowerName = params.get('borrower');
+    if (borrowerName) {
+      setValue('borrower_name', decodeURIComponent(borrowerName));
+    }
+
+    // Fetch contacts for autocomplete
+    const fetchContacts = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('last_loan_at', { ascending: false });
+      if (data) setContacts(data);
+    };
+    fetchContacts();
   }, [setValue]);
 
   useEffect(() => {
@@ -134,6 +158,14 @@ export function CreateLoan() {
     const timer = setTimeout(saveDraft, 1000);
     return () => clearTimeout(timer);
   }, [allValues, bankName, accountName, accountNumber, selectedGroupId, step]);
+
+  const filteredContacts = useMemo(() => {
+    if (!borrower_name || !showAutocomplete) return [];
+    return contacts.filter(c =>
+      c.name.toLowerCase().includes(borrower_name.toLowerCase()) &&
+      c.name.toLowerCase() !== borrower_name.toLowerCase()
+    );
+  }, [contacts, borrower_name, showAutocomplete]);
 
   useEffect(() => {
     fetchGroups();
@@ -293,6 +325,23 @@ export function CreateLoan() {
           console.error("Failed to create installments:", instError);
           toast.error("Loan created but failed to generate installments. Please contact support.");
         }
+      }
+
+      // Upsert into contacts table
+      try {
+        const { error: contactError } = await supabase
+          .from('contacts')
+          .upsert({
+            user_id: user.id,
+            name: borrower_name,
+            last_loan_at: new Date().toISOString(),
+          }, {
+            onConflict: 'user_id,name'
+          });
+
+        if (contactError) console.error("Error upserting contact:", contactError);
+      } catch (err) {
+        console.error("Failed to update contacts:", err);
       }
 
 
@@ -580,11 +629,49 @@ export function CreateLoan() {
                           type="text"
                           placeholder="e.g. Sarah Chen"
                           {...register("borrower_name")}
+                          onFocus={() => setShowAutocomplete(true)}
+                          onBlur={() => setTimeout(() => setShowAutocomplete(false), 200)}
                           className={cn(
-                            "pl-11 h-14 bg-muted/30 border-transparent focus:bg-background focus:ring-primary/20 focus:border-primary/20 rounded-2xl transition-all",
+                            "pl-11 h-14 bg-muted/30 border-transparent focus:bg-background focus:ring-primary/20 focus:border-primary/20 rounded-2xl transition-all font-bold",
                             errors.borrower_name && "border-destructive ring-destructive/20 bg-destructive/5"
                           )}
                         />
+
+                        <AnimatePresence>
+                          {filteredContacts.length > 0 && (
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                              className="absolute z-[60] left-0 right-0 top-full mt-2 bg-white border border-border rounded-2xl shadow-xl overflow-hidden max-h-48 overflow-y-auto no-scrollbar"
+                            >
+                              {filteredContacts.map(contact => (
+                                <button
+                                  key={contact.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setValue("borrower_name", contact.name);
+                                    setShowAutocomplete(false);
+                                  }}
+                                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 text-left"
+                                >
+                                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-black text-xs text-slate-400">
+                                    {contact.name.charAt(0)}
+                                  </div>
+                                  <div className="flex-1">
+                                    <div className="text-sm font-bold text-slate-900">{contact.name}</div>
+                                    {contact.tags?.length > 0 && (
+                                      <div className="text-[10px] text-slate-400 font-medium">
+                                        {contact.tags.join(", ")}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <Plus className="w-3 h-3 text-slate-300" />
+                                </button>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                       {errors.borrower_name && (
                         <p className="text-[10px] font-bold text-destructive ml-1 animate-pulse italic">{errors.borrower_name.message}</p>

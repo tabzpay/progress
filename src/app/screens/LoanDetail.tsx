@@ -1,6 +1,6 @@
-import { ArrowLeft, Calendar, Clock, Bell, Plus, ChevronRight, User, TrendingUp, DollarSign, History, MessageSquare, Send, CheckCircle2, UserPlus, Briefcase, FileText, X } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Bell, Plus, ChevronRight, User, TrendingUp, DollarSign, History, MessageSquare, Send, CheckCircle2, UserPlus, Briefcase, FileText, X, Download } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useState } from "react"; // Added useState import
+import { useState } from 'react'; // Added useState import
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "../components/ui/button";
 import { StatusTag } from "../components/StatusTag";
@@ -20,6 +20,7 @@ import { InstallmentList } from "../components/InstallmentList";
 import { Label } from "../components/ui/label";
 import { secureDecrypt } from "../../lib/encryption";
 import { getPrivacyKey } from "../../lib/privacyKeyStore";
+import { generateLoanReport } from "../../lib/pdfGenerator";
 
 export function LoanDetail() {
   const navigate = useNavigate();
@@ -34,6 +35,7 @@ export function LoanDetail() {
   const [showUpload, setShowUpload] = useState(false);
   const [uploadCategory, setUploadCategory] = useState<"agreement" | "receipt" | "identity" | "other">("agreement");
   const [refreshDocs, setRefreshDocs] = useState(0);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
 
   useEffect(() => {
     fetchLoanDetail();
@@ -174,6 +176,19 @@ export function LoanDetail() {
     });
   };
 
+  const handleExportPDF = async () => {
+    setIsExportingPDF(true);
+    try {
+      await generateLoanReport(loan, loan.repayments || []);
+      toast.success("PDF report downloaded successfully");
+    } catch (error: any) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF report");
+    } finally {
+      setIsExportingPDF(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-32">
       {/* Premium Header */}
@@ -209,7 +224,23 @@ export function LoanDetail() {
                 </span>
               </div>
             </div>
-            <StatusTag status={loan.status} className="bg-white/20 border-white/20 text-white" />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleExportPDF}
+                disabled={isExportingPDF}
+                className="text-white hover:bg-white/10 rounded-full h-10 w-10 border border-white/20 backdrop-blur-sm shrink-0"
+                title="Export PDF Report"
+              >
+                {isExportingPDF ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Download className="w-5 h-5" />
+                )}
+              </Button>
+              <StatusTag status={loan.status} className="bg-white/20 border-white/20 text-white" />
+            </div>
           </div>
 
           <div className="text-center">

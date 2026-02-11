@@ -2,6 +2,8 @@ import { ArrowRight, Calendar, User, TrendingUp, TrendingDown } from "lucide-rea
 import { StatusTag } from "./StatusTag";
 import { cn } from "./ui/utils";
 import { motion } from "motion/react";
+import { ScoreBadgeCompact } from "./ScoreBadge";
+import type { CreditTier } from "../../lib/CreditScore";
 
 type LoanStatus = "active" | "partial" | "completed" | "overdue";
 type LoanType = "personal" | "business" | "group";
@@ -17,6 +19,8 @@ interface LoanCardProps {
   currency?: string;
   isLender: boolean;
   onClick?: () => void;
+  creditScore?: number;
+  creditTier?: CreditTier;
 }
 
 export function LoanCard({
@@ -29,6 +33,8 @@ export function LoanCard({
   currency = "USD",
   isLender,
   onClick,
+  creditScore,
+  creditTier,
 }: LoanCardProps) {
   const formatAmount = (num: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -72,16 +78,23 @@ export function LoanCard({
 
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className={cn(
-              "p-1.5 rounded-lg shrink-0",
-              isLender ? "bg-indigo-50 text-indigo-600" : "bg-rose-50 text-rose-600"
-            )}>
-              <User className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+            <div className="flex items-center gap-2">
+              <div className={cn(
+                "p-1.5 rounded-lg shrink-0",
+                isLender ? "bg-indigo-50 text-indigo-600" : "bg-rose-50 text-rose-600"
+              )}>
+                <User className="w-3.5 h-3.5" />
+              </div>
+              <h3 className="text-[15px] font-bold tracking-tight text-foreground truncate max-w-[140px]">
+                {borrowerName}
+              </h3>
             </div>
-            <h3 className="text-[15px] font-bold tracking-tight text-foreground truncate max-w-[140px]">
-              {borrowerName}
-            </h3>
+            {isLender && creditScore !== undefined && creditTier && (
+              <div className="scale-90 origin-left">
+                <ScoreBadgeCompact score={creditScore} tier={creditTier} />
+              </div>
+            )}
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/50 border border-border px-1.5 py-0.5 rounded-md">
               {typeLabels[type]}
             </span>

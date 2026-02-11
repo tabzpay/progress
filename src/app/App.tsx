@@ -29,6 +29,7 @@ import { ActivityLog } from "./screens/ActivityLog";
 import { ReminderSettings } from "./screens/ReminderSettings";
 import SecuritySettings from "./screens/SecuritySettings";
 import MFAVerify from "./screens/MFAVerify";
+import { AnalyticsDashboard } from "./screens/AnalyticsDashboard";
 import { Toaster } from "./components/ui/sonner";
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
@@ -94,6 +95,7 @@ export default function App() {
           {isAuthenticated ? (
             <>
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/analytics" element={<AnalyticsDashboard />} />
               <Route path="/create-loan" element={<CreateLoan />} />
               <Route path="/loan/:loanId" element={<LoanDetail />} />
               <Route path="/loan/:loanId/add-payment" element={<AddPayment />} />

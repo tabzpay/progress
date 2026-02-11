@@ -1,8 +1,10 @@
-import { Plus, DollarSign, FileText, Menu, User, Search, Filter, ArrowRight, BellRing, UserPlus, HeartPulse, AlertTriangle, CheckCircle2, Navigation, Download } from "lucide-react";
+import { Plus, DollarSign, FileText, Menu, User, Search, Filter, ArrowRight, BellRing, UserPlus, HeartPulse, AlertTriangle, CheckCircle2, Navigation, Download, Tag } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { LoanCard } from "../components/LoanCard";
+import { PersonalScoreCard } from "../components/PersonalScoreCard";
+import { RepaymentTimeline } from "../components/RepaymentTimeline";
 import { BalanceBadge } from "../components/BalanceBadge";
 import { EmptyState } from "../components/EmptyState";
 import { Button } from "../components/ui/button";
@@ -22,6 +24,7 @@ import { exportToCSV } from "../../lib/csvExport";
 import { requestNotificationPermission, notifyIfPossible } from "../../lib/notifications";
 import { LendingTrendChart, StatusDistributionChart, BorrowerConcentrationChart, CashFlowForecastChart } from "../components/AnalyticsCharts";
 import { ChevronDown, ChevronUp, BarChart } from "lucide-react";
+import { calculateCreditScore, type CreditScoreResult } from "../../lib/CreditScore";
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -35,6 +38,13 @@ export function Dashboard() {
   const [userId, setUserId] = useState<string | null>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [creditScores, setCreditScores] = useState<Record<string, CreditScoreResult>>({});
+  const [userCreditScore, setUserCreditScore] = useState<CreditScoreResult | null>(null);
+  const [isScoreDetailOpen, setIsScoreDetailOpen] = useState(false);
+  const [upcomingInstallments, setUpcomingInstallments] = useState<any[]>([]);
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [selectedContact, setSelectedContact] = useState<any | null>(null);
+  const [isTagModalOpen, setIsTagModalOpen] = useState(false);
 
   // Advanced Filters State
   const [minAmount, setMinAmount] = useState("");
@@ -128,7 +138,18 @@ export function Dashboard() {
       }
     });
 
-    return { trendData, distributionData, concentrationData, forecastData: forecast };
+    // 5. Debt Progress (Total Borrowed vs Total Repaid)
+    let totalBorrowed = 0;
+    let totalRepaidByBorrower = 0;
+    loans.forEach(loan => {
+      if (loan.borrower_id === userId) {
+        totalBorrowed += Number(loan.amount);
+        totalRepaidByBorrower += loan.repayments?.reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0) || 0;
+      }
+    });
+    const debtProgress = totalBorrowed > 0 ? (totalRepaidByBorrower / totalBorrowed) * 100 : 0;
+
+    return { trendData, distributionData, concentrationData, forecastData: forecast, debtProgress, totalBorrowed, totalRepaidByBorrower };
   }, [loans, userId]);
 
   const hasUnread = notifications.some(n => !n.is_read);
@@ -140,8 +161,17 @@ export function Dashboard() {
         setUserId(user.id);
         fetchLoans();
         fetchNotifications(user.id);
+        fetchContacts(user.id);
         const unsubscribeNotifications = subscribeToNotifications(user.id);
         const unsubscribeData = subscribeToDataChanges(user.id);
+
+        // Fetch user's own credit score
+        try {
+          const score = await calculateCreditScore(user.id);
+          setUserCreditScore(score);
+        } catch (err) {
+          console.error("Error fetching user credit score:", err);
+        }
 
         // Request browser notification permission
         requestNotificationPermission();
@@ -184,11 +214,54 @@ export function Dashboard() {
           fetchLoans();
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'contacts'
+        },
+        () => {
+          console.log("Real-time update: contacts table changed. Refreshing...");
+          fetchContacts(uid);
+        }
+      )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
+  }
+
+  async function fetchContacts(uid: string) {
+    try {
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('*')
+        .eq('user_id', uid)
+        .order('last_loan_at', { ascending: false });
+
+      if (error) throw error;
+      setContacts(data || []);
+    } catch (error) {
+      console.error("Error fetching contacts:", error);
+    }
+  }
+
+  async function updateContactTags(contactId: string, tags: string[]) {
+    try {
+      const { error } = await supabase
+        .from('contacts')
+        .update({ tags })
+        .eq('id', contactId);
+
+      if (error) throw error;
+      toast.success("Tags updated");
+      setIsTagModalOpen(false);
+    } catch (error) {
+      console.error("Error updating tags:", error);
+      toast.error("Failed to update tags");
+    }
   }
 
   async function fetchNotifications(uid: string) {
@@ -267,7 +340,7 @@ export function Dashboard() {
     try {
       const { data, error } = await supabase
         .from('loans')
-        .select('*, repayments(*)')
+        .select('*, repayments(*), installments(*)')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -280,12 +353,55 @@ export function Dashboard() {
       })));
 
       setLoans(loansWithDecryption);
+
+      // Auto-set filter based on net position
+      const totalOwedToYou = loansWithDecryption
+        .filter(l => l.lender_id === userId && l.status !== "PAID")
+        .reduce((sum, l) => sum + Number(l.amount), 0);
+      const totalYouOwe = loansWithDecryption
+        .filter(l => l.borrower_id === userId && l.status !== "PAID")
+        .reduce((sum, l) => sum + Number(l.amount), 0);
+
+      if (totalYouOwe > totalOwedToYou && activeFilter === 'all') {
+        setActiveFilter('borrowed');
+      }
+
+      // Process upcoming installments for the borrower
+      const borrowerInstallments = loansWithDecryption
+        .filter(loan => loan.borrower_id === userId)
+        .flatMap(loan => (loan.installments || []).map((inst: any) => ({
+          ...inst,
+          borrower_name: loan.borrower_name,
+          loan_id: loan.id,
+          currency: loan.currency
+        })))
+        .filter(inst => inst.status === 'pending' || inst.status === 'partially_paid')
+        .sort((a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime());
+
+      setUpcomingInstallments(borrowerInstallments);
+
+      // Fetch credit scores for all borrowers
+      const borrowerIds = Array.from(new Set(loansWithDecryption.map(l => l.borrower_id)));
+      fetchCreditScores(borrowerIds);
     } catch (error: any) {
       console.error("Error fetching loans:", error);
       toast.error("Failed to load your records");
     } finally {
       setIsLoading(false);
     }
+  }
+
+  async function fetchCreditScores(borrowerIds: string[]) {
+    const scores: Record<string, CreditScoreResult> = {};
+    await Promise.allSettled(borrowerIds.map(async (id) => {
+      try {
+        const result = await calculateCreditScore(id);
+        scores[id] = result;
+      } catch (err) {
+        console.error(`Error calculating score for ${id}:`, err);
+      }
+    }));
+    setCreditScores(prev => ({ ...prev, ...scores }));
   }
 
   const handleExportCSV = () => {
@@ -339,6 +455,13 @@ export function Dashboard() {
       return (isOverdue || isDueSoon) && matchesFilter;
     });
   }, [loans, activeFilter, userId]);
+
+  const filteredContacts = useMemo(() => {
+    return contacts.filter(contact =>
+      contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      contact.tags?.some((tag: string) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+  }, [contacts, searchQuery]);
 
   // Calculate totals
   const owedToYou = loans
@@ -554,35 +677,47 @@ export function Dashboard() {
             </div>
           </div>
 
-          {/* Elevated Net Balance Focus */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            key={currency}
-            className="text-center mb-10 md:mb-14"
-          >
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.8 }}
-              className="text-white text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] mb-2 md:mb-4"
-            >
-              Net Position
-            </motion.p>
-            <h2 className="text-5xl md:text-7xl font-black text-white tracking-tighter tabular-nums drop-shadow-2xl">
-              <span className="opacity-40">{netBalance >= 0 ? "+" : "-"}</span>
-              {formatAmount(Math.abs(netBalance)).replace(/[^\d]/g, '')}
-              <span className="text-2xl md:text-4xl align-top ml-1 opacity-60 leading-none">{currency}</span>
-            </h2>
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="mt-4 md:mt-6 inline-flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-xl md:rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 text-[10px] md:text-[11px] font-black text-white/95 shadow-2xl"
-            >
-              <div className={`w-1.5 md:w-2 h-1.5 md:h-2 rounded-full ${netBalance >= 0 ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]' : 'bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.6)]'} animate-pulse`} />
-              {activeLoansCount} ACTIVE RECORDS
-            </motion.div>
-          </motion.div>
+          {/* Elevated Net Balance Focus or Personal Score Card */}
+          <AnimatePresence mode="wait">
+            {activeFilter === 'borrowed' && userCreditScore ? (
+              <PersonalScoreCard
+                key="personal-score"
+                creditScore={userCreditScore}
+                onDetail={() => setIsScoreDetailOpen(true)}
+                className="mb-10 md:mb-14"
+              />
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                key={currency + activeFilter}
+                className="text-center mb-10 md:mb-14"
+              >
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 0.8 }}
+                  className="text-white text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] mb-2 md:mb-4"
+                >
+                  {activeFilter === 'lent' ? 'Lending Position' : activeFilter === 'borrowed' ? 'Borrowing Position' : 'Net Position'}
+                </motion.p>
+                <h2 className="text-5xl md:text-7xl font-black text-white tracking-tighter tabular-nums drop-shadow-2xl">
+                  <span className="opacity-40">{netBalance >= 0 ? "+" : "-"}</span>
+                  {formatAmount(Math.abs(netBalance)).replace(/[^\d]/g, '')}
+                  <span className="text-2xl md:text-4xl align-top ml-1 opacity-60 leading-none">{currency}</span>
+                </h2>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="mt-4 md:mt-6 inline-flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-xl md:rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 text-[10px] md:text-[11px] font-black text-white/95 shadow-2xl"
+                >
+                  <div className={`w-1.5 md:w-2 h-1.5 md:h-2 rounded-full ${netBalance >= 0 ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]' : 'bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.6)]'} animate-pulse`} />
+                  {activeLoansCount} ACTIVE RECORDS
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Enhanced Glassmorphism Stats Grid */}
           <div className="grid grid-cols-2 gap-3 md:gap-5">
@@ -610,7 +745,24 @@ export function Dashboard() {
             >
               <p className="text-white/50 text-[9px] md:text-[10px] uppercase font-black tracking-widest mb-2 md:mb-4">You owe</p>
               <div className="flex items-end justify-between">
-                <span className="text-lg md:text-2xl font-black text-white tabular-nums">{formatAmount(youOwe)}</span>
+                <div>
+                  <span className="text-lg md:text-2xl font-black text-white tabular-nums">{formatAmount(youOwe)}</span>
+                  {activeFilter === 'borrowed' && analyticsData.totalBorrowed > 0 && (
+                    <div className="mt-4 space-y-1.5 w-full min-w-[120px]">
+                      <div className="flex justify-between text-[8px] font-black uppercase tracking-tighter text-white/40">
+                        <span>Repaid: {Math.round(analyticsData.debtProgress)}%</span>
+                        <span>{formatAmount(analyticsData.totalRepaidByBorrower)}</span>
+                      </div>
+                      <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${analyticsData.debtProgress}%` }}
+                          className="h-full bg-rose-400"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <div className="w-6 md:w-8 h-6 md:h-8 rounded-lg md:rounded-xl bg-rose-400/20 flex items-center justify-center border border-rose-400/20 shadow-inner">
                   <div className="w-2.5 md:w-3 h-0.5 bg-rose-400 rounded-full" />
                 </div>
@@ -897,6 +1049,16 @@ export function Dashboard() {
             </motion.button>
             <motion.button
               whileTap={{ scale: 0.95 }}
+              onClick={() => navigate("/analytics")}
+              className="flex flex-col items-center gap-3 shrink-0"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-sm">
+                <BarChart className="w-6 h-6" />
+              </div>
+              <span className="text-[11px] font-semibold text-blue-600">Analytics</span>
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
               onClick={() => navigate("/more")}
               className="flex flex-col items-center gap-3 shrink-0"
             >
@@ -957,6 +1119,68 @@ export function Dashboard() {
           )}
         </AnimatePresence>
 
+        {/* Repayment Timeline for Borrowers */}
+        {upcomingInstallments.length > 0 && (activeFilter === 'all' || activeFilter === 'borrowed') && (
+          <div className="mb-10">
+            <RepaymentTimeline
+              installments={upcomingInstallments}
+              onPay={(inst) => navigate(`/loan/${inst.loan_id}`)}
+            />
+          </div>
+        )}
+
+        {/* Contacts Section for Lenders */}
+        {(activeFilter === 'all' || activeFilter === 'lent') && contacts.length > 0 && (
+          <div className="mb-10">
+            <div className="flex items-center justify-between mb-4 px-1">
+              <h2 className="text-[10px] items-center gap-1.5 flex uppercase font-black tracking-widest text-slate-400">
+                <UserPlus className="w-3.5 h-3.5" />
+                Your Network
+              </h2>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-1 px-1">
+              {filteredContacts.map((contact) => (
+                <motion.div
+                  key={contact.id}
+                  whileHover={{ y: -4 }}
+                  className="shrink-0 w-36 bg-white border border-slate-100 rounded-[2rem] p-4 shadow-sm hover:shadow-md transition-all group"
+                >
+                  <div className="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center font-black text-slate-400 mb-3 group-hover:bg-indigo-50 group-hover:text-indigo-400 transition-colors relative">
+                    {contact.name.charAt(0)}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedContact(contact);
+                        setIsTagModalOpen(true);
+                      }}
+                      className="absolute -top-1 -right-1 w-5 h-5 bg-white border border-slate-100 rounded-lg flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Plus className="w-3 h-3 text-slate-400" />
+                    </button>
+                  </div>
+                  <div className="font-bold text-slate-900 text-sm truncate mb-1">{contact.name}</div>
+                  <div className="flex flex-wrap gap-1 mb-4 h-4 overflow-hidden">
+                    {contact.tags?.slice(0, 1).map((tag: string) => (
+                      <span key={tag} className="text-[8px] font-black uppercase text-slate-400 flex items-center gap-0.5">
+                        <Tag className="w-2 h-2" />
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => navigate(`/create-loan?borrower=${encodeURIComponent(contact.name)}`)}
+                    className="w-full h-8 rounded-xl bg-slate-50 hover:bg-indigo-600 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all"
+                  >
+                    Lend
+                  </Button>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between mb-6 px-1">
           <div className="flex items-center gap-4">
             <h2 className="text-[10px] items-center gap-1.5 flex uppercase font-bold tracking-widest text-muted-foreground">
@@ -1009,6 +1233,8 @@ export function Dashboard() {
                     type={loan.type || "personal"}
                     currency={loan.currency}
                     isLender={loan.lender_id === userId}
+                    creditScore={creditScores[loan.borrower_id]?.score}
+                    creditTier={creditScores[loan.borrower_id]?.tier}
                     onClick={() => navigate(`/loan/${loan.id}`)}
                   />
                 </motion.div>
@@ -1053,6 +1279,186 @@ export function Dashboard() {
         onMarkAsRead={handleMarkAsRead}
         onMarkAllAsRead={handleMarkAllAsRead}
       />
+
+      {/* Credit Score Analysis Modal */}
+      <AnimatePresence>
+        {isScoreDetailOpen && userCreditScore && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsScoreDetailOpen(false)}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-card border border-border rounded-[2.5rem] shadow-2xl overflow-hidden"
+            >
+              <div className="p-8">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 className="text-2xl font-black text-slate-900 tracking-tight">Credit Analysis</h3>
+                    <p className="text-sm font-medium text-slate-500">Factors impacting your score</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsScoreDetailOpen(false)}
+                    className="rounded-full"
+                  >
+                    <Plus className="w-6 h-6 rotate-45" />
+                  </Button>
+                </div>
+
+                <div className="space-y-6">
+                  {[
+                    { label: "On-time Payment Rate", value: userCreditScore.factors.onTimePaymentRate, weight: "40%", description: "Consistency in meeting due dates" },
+                    { label: "Loan Completion Rate", value: userCreditScore.factors.loanCompletionRate, weight: "30%", description: "Percentage of loans fully settled" },
+                    { label: "Volume Score", value: userCreditScore.factors.totalVolumeNormalized, weight: "20%", description: "Total financial throughput handled" },
+                    { label: "History Duration", value: userCreditScore.factors.relationshipDuration, weight: "10%", description: "Time since your first recorded loan" }
+                  ].map((factor, i) => (
+                    <motion.div
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.1 }}
+                      key={factor.label}
+                      className="space-y-2"
+                    >
+                      <div className="flex justify-between items-end">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-black text-slate-800">{factor.label}</span>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-1.5 py-0.5 rounded">Weight: {factor.weight}</span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 font-medium">{factor.description}</p>
+                        </div>
+                        <span className="text-lg font-black text-indigo-600">{factor.value}%</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${factor.value}%` }}
+                          transition={{ duration: 1, delay: 0.5 + (i * 0.1) }}
+                          className="h-full bg-indigo-500"
+                        />
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+
+                <div className="mt-10 p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+                  <div className="flex gap-3">
+                    <HeartPulse className="w-5 h-5 text-indigo-600 shrink-0" />
+                    <p className="text-xs font-semibold text-indigo-900/70 leading-relaxed">
+                      Your score is calculated using a weighted average of your transaction history. Increasing your on-time payment rate has the highest impact on reaching the next tier.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Tag Management Modal */}
+      <AnimatePresence>
+        {isTagModalOpen && selectedContact && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsTagModalOpen(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-sm bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
+            >
+              <div className="p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight">Manage Tags</h3>
+                    <p className="text-sm font-medium text-slate-500">For {selectedContact.name}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsTagModalOpen(false)}
+                    className="rounded-full"
+                  >
+                    <Plus className="w-6 h-6 rotate-45 text-slate-400" />
+                  </Button>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-black tracking-widest text-slate-400 ml-1">Current Tags</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedContact.tags?.length > 0 ? (
+                        selectedContact.tags.map((tag: string) => (
+                          <span key={tag} className="bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-2">
+                            {tag}
+                            <button
+                              onClick={() => {
+                                const newTags = selectedContact.tags.filter((t: string) => t !== tag);
+                                updateContactTags(selectedContact.id, newTags);
+                                setSelectedContact({ ...selectedContact, tags: newTags });
+                              }}
+                              className="hover:text-rose-500 transition-colors"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))
+                      ) : (
+                        <p className="text-xs font-medium text-slate-400 italic py-2 ml-1">No tags added yet</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-black tracking-widest text-slate-400 ml-1">Add New Tag</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="new-tag"
+                        placeholder="e.g. Family"
+                        className="rounded-2xl bg-slate-50 border-transparent focus:bg-white focus:border-indigo-100 font-bold text-sm h-11"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const val = (e.target as HTMLInputElement).value.trim();
+                            if (val) {
+                              const newTags = [...(selectedContact.tags || []), val];
+                              updateContactTags(selectedContact.id, newTags);
+                              setSelectedContact({ ...selectedContact, tags: newTags });
+                              (e.target as HTMLInputElement).value = '';
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-slate-50">
+                  <Button
+                    variant="outline"
+                    className="w-full rounded-2xl h-12 font-black uppercase tracking-widest text-[11px] border-slate-200 text-slate-400 hover:bg-slate-50"
+                    onClick={() => setIsTagModalOpen(false)}
+                  >
+                    Close Management
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

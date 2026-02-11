@@ -217,6 +217,8 @@ export function DesignSystem() {
               status="active"
               type="personal"
               isLender={true}
+              creditScore={88}
+              creditTier="Platinum"
             />
             <LoanCard
               id="demo-2"
@@ -227,6 +229,8 @@ export function DesignSystem() {
               status="partial"
               type="business"
               isLender={true}
+              creditScore={72}
+              creditTier="Gold"
             />
             <LoanCard
               id="demo-3"
