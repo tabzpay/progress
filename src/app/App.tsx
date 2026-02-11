@@ -26,6 +26,9 @@ import HelpCenter from "./screens/HelpCenter";
 import { MoreUtilities } from "./screens/MoreUtilities";
 import { SendNotice } from "./screens/SendNotice";
 import { ActivityLog } from "./screens/ActivityLog";
+import { ReminderSettings } from "./screens/ReminderSettings";
+import SecuritySettings from "./screens/SecuritySettings";
+import MFAVerify from "./screens/MFAVerify";
 import { Toaster } from "./components/ui/sonner";
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
@@ -101,6 +104,9 @@ export default function App() {
               <Route path="/more" element={<MoreUtilities />} />
               <Route path="/send-notice" element={<SendNotice />} />
               <Route path="/activity-log" element={<ActivityLog />} />
+              <Route path="/reminder-settings" element={<ReminderSettings />} />
+              <Route path="/security-settings" element={<SecuritySettings />} />
+              <Route path="/mfa-verify" element={<MFAVerify />} />
               <Route path="/design-system" element={<DesignSystem />} />
             </>
           ) : (

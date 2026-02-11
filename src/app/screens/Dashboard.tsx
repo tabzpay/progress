@@ -7,15 +7,21 @@ import { BalanceBadge } from "../components/BalanceBadge";
 import { EmptyState } from "../components/EmptyState";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import { mockLoans, currentUser, Loan, mockNotifications } from "../data/mockData";
 import { NotificationHub } from "../components/NotificationHub";
 import { cn } from "../components/ui/utils";
 import { useEffect } from "react";
+import { analytics } from "../../lib/analytics";
+import { secureDecrypt, isEncrypted } from "../../lib/encryption";
+import { getPrivacyKey } from "../../lib/privacyKeyStore";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
 import { DashboardSkeleton } from "../components/Skeletons";
 import { exportToCSV } from "../../lib/csvExport";
 import { requestNotificationPermission, notifyIfPossible } from "../../lib/notifications";
+import { LendingTrendChart, StatusDistributionChart, BorrowerConcentrationChart, CashFlowForecastChart } from "../components/AnalyticsCharts";
+import { ChevronDown, ChevronUp, BarChart } from "lucide-react";
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -27,6 +33,16 @@ export function Dashboard() {
   const [loans, setLoans] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Advanced Filters State
+  const [minAmount, setMinAmount] = useState("");
+  const [maxAmount, setMaxAmount] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
 
   const mapLoanStatus = (status: string): "active" | "partial" | "completed" | "overdue" => {
     switch (status.toUpperCase()) {
@@ -40,6 +56,81 @@ export function Dashboard() {
     }
   };
 
+  // Analytics Data Calculations
+  const analyticsData = useMemo(() => {
+    // 1. Lending Trend (Last 6 months)
+    const trend: { [key: string]: number } = {};
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthName = d.toLocaleString('default', { month: 'short' });
+      trend[monthName] = 0;
+    }
+
+    loans.forEach(loan => {
+      const date = new Date(loan.created_at);
+      const monthName = date.toLocaleString('default', { month: 'short' });
+      if (trend.hasOwnProperty(monthName)) {
+        trend[monthName] += Number(loan.amount);
+      }
+    });
+
+    const trendData = Object.entries(trend).map(([name, amount]) => ({ name, amount }));
+
+    // 2. Status Distribution
+    const statusCounts = {
+      Paid: loans.filter(l => l.status === "PAID").length,
+      Active: loans.filter(l => l.status === "ACTIVE" || l.status === "PENDING").length,
+      Overdue: loans.filter(l => {
+        const dueDate = l.due_date ? new Date(l.due_date) : null;
+        return dueDate && dueDate < now && l.status !== "PAID";
+      }).length
+    };
+    const distributionData = Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
+
+    // 3. Borrower Concentration
+    const borrowerTotals: { [key: string]: number } = {};
+    loans.forEach(loan => {
+      if (loan.lender_id === userId) {
+        borrowerTotals[loan.borrower_name] = (borrowerTotals[loan.borrower_name] || 0) + Number(loan.amount);
+      }
+    });
+    const concentrationData = Object.entries(borrowerTotals)
+      .map(([name, amount]) => ({ name, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5);
+
+    // 4. Cash Flow Forecast (Next 4 Weeks)
+    const forecast: { name: string; inflow: number; outflow: number }[] = [];
+    for (let i = 0; i < 4; i++) {
+      forecast.push({
+        name: i === 0 ? "This Week" : `Week ${i + 1}`,
+        inflow: 0,
+        outflow: 0
+      });
+    }
+
+    loans.forEach(loan => {
+      if (loan.status === "PAID") return;
+      const dueDate = loan.due_date ? new Date(loan.due_date) : null;
+      if (!dueDate) return;
+
+      const weeksDiff = Math.floor((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 7));
+      if (weeksDiff >= 0 && weeksDiff < 4) {
+        const repaid = loan.repayments?.reduce((s: number, r: any) => s + (Number(r.amount) || 0), 0) || 0;
+        const remaining = Number(loan.amount) - repaid;
+
+        if (loan.lender_id === userId) {
+          forecast[weeksDiff].inflow += remaining;
+        } else if (loan.borrower_id === userId) {
+          forecast[weeksDiff].outflow += remaining;
+        }
+      }
+    });
+
+    return { trendData, distributionData, concentrationData, forecastData: forecast };
+  }, [loans, userId]);
+
   const hasUnread = notifications.some(n => !n.is_read);
 
   useEffect(() => {
@@ -49,15 +140,56 @@ export function Dashboard() {
         setUserId(user.id);
         fetchLoans();
         fetchNotifications(user.id);
-        subscribeToNotifications(user.id);
+        const unsubscribeNotifications = subscribeToNotifications(user.id);
+        const unsubscribeData = subscribeToDataChanges(user.id);
+
         // Request browser notification permission
         requestNotificationPermission();
+
+        return () => {
+          unsubscribeNotifications();
+          unsubscribeData();
+        };
       } else {
         setIsLoading(false);
       }
     }
     init();
   }, []);
+
+  function subscribeToDataChanges(uid: string) {
+    const channel = supabase
+      .channel('dashboard-data-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'loans'
+        },
+        () => {
+          console.log("Real-time update: loans table changed. Refreshing...");
+          fetchLoans();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'repayments'
+        },
+        () => {
+          console.log("Real-time update: repayments table changed. Refreshing...");
+          fetchLoans();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }
 
   async function fetchNotifications(uid: string) {
     try {
@@ -139,7 +271,15 @@ export function Dashboard() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setLoans(data || []);
+
+      // Decrypt descriptions if needed
+      const privacyKey = getPrivacyKey();
+      const loansWithDecryption = await Promise.all((data || []).map(async (loan) => ({
+        ...loan,
+        description: await secureDecrypt(loan.description || "", privacyKey)
+      })));
+
+      setLoans(loansWithDecryption);
     } catch (error: any) {
       console.error("Error fetching loans:", error);
       toast.error("Failed to load your records");
@@ -222,26 +362,58 @@ export function Dashboard() {
   ).length;
 
   // Filter and Search Logic
-  const filteredLoans = loans
-    .filter((loan) => {
-      const matchesSearch =
-        loan.borrower_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (loan.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+  const filteredLoans = useMemo(() => {
+    return loans
+      .filter((loan) => {
+        // 1. Search Query
+        const matchesSearch =
+          loan.borrower_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (loan.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
 
-      const isLender = loan.lender_id === userId;
-      const matchesFilter =
-        activeFilter === "all" ||
-        (activeFilter === "lent" && isLender) ||
-        (activeFilter === "borrowed" && !isLender);
+        // 2. Base Lender/Borrower Filter
+        const isLender = loan.lender_id === userId;
+        const matchesFilter =
+          activeFilter === "all" ||
+          (activeFilter === "lent" && isLender) ||
+          (activeFilter === "borrowed" && !isLender);
 
-      return matchesSearch && matchesFilter;
-    })
-    .sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
+        // 3. Status Filter
+        const matchesStatus = selectedStatuses.length === 0 || selectedStatuses.includes(loan.status);
+
+        // 4. Type Filter
+        const matchesType = selectedTypes.length === 0 || selectedTypes.includes(loan.type || "personal");
+
+        // 5. Amount Filter
+        const amount = Number(loan.amount);
+        const matchesMinAmount = !minAmount || amount >= Number(minAmount);
+        const matchesMaxAmount = !maxAmount || amount <= Number(maxAmount);
+
+        // 6. Date Filter
+        const loanDate = new Date(loan.due_date);
+        const matchesStartDate = !startDate || loanDate >= new Date(startDate);
+        const matchesEndDate = !endDate || loanDate <= new Date(endDate);
+
+        return matchesSearch && matchesFilter && matchesStatus && matchesType &&
+          matchesMinAmount && matchesMaxAmount && matchesStartDate && matchesEndDate;
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+  }, [loans, searchQuery, activeFilter, userId, selectedStatuses, selectedTypes, minAmount, maxAmount, startDate, endDate]);
 
   const hasLoans = filteredLoans.length > 0;
+
+  const resetFilters = () => {
+    setSearchQuery("");
+    setActiveFilter("all");
+    setMinAmount("");
+    setMaxAmount("");
+    setStartDate("");
+    setEndDate("");
+    setSelectedStatuses([]);
+    setSelectedTypes([]);
+  };
 
   if (isLoading) {
     return <DashboardSkeleton />;
@@ -445,21 +617,225 @@ export function Dashboard() {
               </div>
             </motion.div>
           </div>
+
+          {/* Analytics Toggle & Dashboard */}
+          <div className="mt-8">
+            <Button
+              variant="ghost"
+              onClick={() => setShowAnalytics(!showAnalytics)}
+              className="w-full flex items-center justify-between px-6 py-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl md:rounded-[2rem] group transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center border border-indigo-500/20 shadow-inner group-hover:bg-indigo-500/30 transition-colors">
+                  <BarChart className="w-4 h-4 text-indigo-400" />
+                </div>
+                <span className="text-xs font-black uppercase tracking-widest text-white/80">Visual Analytics</span>
+              </div>
+              {showAnalytics ? <ChevronUp className="w-4 h-4 text-white/40" /> : <ChevronDown className="w-4 h-4 text-white/40" />}
+            </Button>
+
+            <AnimatePresence>
+              {showAnalytics && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden mt-4 space-y-4"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Lending Trend */}
+                    <div className="bg-white/5 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-6 shadow-2xl">
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Lending Trend</h3>
+                        <span className="text-[9px] font-bold text-white/30 uppercase tracking-tighter">Last 6 Months</span>
+                      </div>
+                      <LendingTrendChart data={analyticsData.trendData} currency={currency} />
+                    </div>
+
+                    {/* Status Distribution */}
+                    <div className="bg-white/5 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-6 shadow-2xl">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Distribution</h3>
+                        <div className="flex gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            <span className="text-[8px] font-bold text-white/40 uppercase">Paid</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+                            <span className="text-[8px] font-bold text-white/40 uppercase">Active</span>
+                          </div>
+                        </div>
+                      </div>
+                      <StatusDistributionChart data={analyticsData.distributionData} />
+                    </div>
+
+                    {/* Cash Flow Forecast */}
+                    <div className="bg-white/5 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-6 shadow-2xl md:col-span-2">
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="flex flex-col">
+                          <h3 className="text-[10px] font-black uppercase tracking-widest text-[#10B981]">Cash Flow Forecast</h3>
+                          <p className="text-[8px] text-white/30 uppercase mt-1">Expected inflows vs outflows</p>
+                        </div>
+                        <span className="text-[9px] font-bold text-white/30 uppercase tracking-tighter">Next 4 Weeks</span>
+                      </div>
+                      <CashFlowForecastChart data={analyticsData.forecastData} currency={currency} />
+                    </div>
+
+                    {/* Borrower Concentration */}
+                    <div className="bg-white/5 backdrop-blur-3xl border border-white/10 rounded-[2rem] p-6 shadow-2xl md:col-span-2">
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400">Concentration</h3>
+                        <span className="text-[9px] font-bold text-white/30 uppercase tracking-tighter">Top 5 Borrowers</span>
+                      </div>
+                      <BorrowerConcentrationChart data={analyticsData.concentrationData} currency={currency} />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </header>
 
       {/* Search and Filters Bar */}
       <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-md border-b border-border py-4 px-4 shadow-sm">
         <div className="max-w-2xl mx-auto space-y-4">
-          <div className="relative group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-            <Input
-              placeholder="Search people or notes..."
-              className="pl-10 h-11 bg-muted/50 border-transparent transition-all focus:bg-background focus:border-primary/20 focus:ring-primary/20 rounded-xl"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+          <div className="flex gap-2">
+            <div className="relative group flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <Input
+                placeholder="Search people or notes..."
+                className="pl-10 h-11 bg-muted/50 border-transparent transition-all focus:bg-background focus:border-primary/20 focus:ring-primary/20 rounded-xl"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <Button
+              variant={showFilters ? "default" : "secondary"}
+              size="icon"
+              className="h-11 w-11 rounded-xl shrink-0"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <Filter className="w-4 h-4" />
+            </Button>
           </div>
+
+          <AnimatePresence>
+            {showFilters && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="bg-muted/30 rounded-2xl p-6 border border-border/50 space-y-6">
+                  {/* Amount Range */}
+                  <div className="space-y-3">
+                    <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Amount Range ({currency})</Label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="number"
+                        placeholder="Min"
+                        value={minAmount}
+                        onChange={(e) => setMinAmount(e.target.value)}
+                        className="h-10 bg-background rounded-xl text-xs"
+                      />
+                      <div className="w-2 h-px bg-border shrink-0" />
+                      <Input
+                        type="number"
+                        placeholder="Max"
+                        value={maxAmount}
+                        onChange={(e) => setMaxAmount(e.target.value)}
+                        className="h-10 bg-background rounded-xl text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Date Range */}
+                  <div className="space-y-3">
+                    <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Due Date Range</Label>
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        className="h-10 bg-background rounded-xl text-xs"
+                      />
+                      <div className="w-2 h-px bg-border shrink-0" />
+                      <Input
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        className="h-10 bg-background rounded-xl text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Status Multi-select */}
+                  <div className="space-y-3">
+                    <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Status</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {["PENDING", "ACTIVE", "PAID", "OVERDUE"].map((status) => (
+                        <button
+                          key={status}
+                          onClick={() => {
+                            setSelectedStatuses(prev =>
+                              prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+                            );
+                          }}
+                          className={cn(
+                            "px-4 py-1.5 rounded-full text-[10px] font-bold transition-all border",
+                            selectedStatuses.includes(status)
+                              ? "bg-slate-900 border-slate-900 text-white"
+                              : "bg-white border-border text-muted-foreground hover:border-slate-300"
+                          )}
+                        >
+                          {status}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Type Filter */}
+                  <div className="space-y-3">
+                    <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Loan Type</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {["personal", "business", "emergency", "education", "other"].map((type) => (
+                        <button
+                          key={type}
+                          onClick={() => {
+                            setSelectedTypes(prev =>
+                              prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+                            );
+                          }}
+                          className={cn(
+                            "px-4 py-1.5 rounded-full text-[10px] font-bold transition-all border capitalize",
+                            selectedTypes.includes(type)
+                              ? "bg-slate-900 border-slate-900 text-white"
+                              : "bg-white border-border text-muted-foreground hover:border-slate-300"
+                          )}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex justify-end">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={resetFilters}
+                      className="text-[10px] font-bold uppercase tracking-widest text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-xl"
+                    >
+                      Reset All Filters
+                    </Button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
             <Filter className="w-4 h-4 text-muted-foreground shrink-0 mr-1" />
@@ -597,9 +973,9 @@ export function Dashboard() {
               </button>
             )}
           </div>
-          {(isLoading || searchQuery || activeFilter !== "all") && (
+          {(isLoading || searchQuery || activeFilter !== "all" || selectedStatuses.length > 0 || selectedTypes.length > 0 || minAmount || maxAmount || startDate || endDate) && (
             <button
-              onClick={() => { setSearchQuery(""); setActiveFilter("all"); }}
+              onClick={resetFilters}
               className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1"
             >
               {isLoading ? "Refreshing..." : "Clear All Filters"}

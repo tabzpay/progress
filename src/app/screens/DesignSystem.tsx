@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import { toast } from "sonner";
 import { StatusTag } from "../components/StatusTag";
 import { BalanceBadge } from "../components/BalanceBadge";
 import { ProgressBar } from "../components/ProgressBar";
@@ -249,7 +250,7 @@ export function DesignSystem() {
               title="No items yet"
               description="This is what users see when there's no content to display"
               actionLabel="Add Item"
-              onAction={() => alert("Action clicked")}
+              onAction={() => toast.success("Action triggered successfully")}
             />
           </div>
         </section>

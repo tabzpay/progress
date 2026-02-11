@@ -12,6 +12,7 @@ import { LoginSchema, type LoginFormData } from "../../lib/schemas";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
 import { cn } from "../components/ui/utils";
+import { logActivity } from "../../lib/logger";
 
 export function SignIn() {
     const navigate = useNavigate();
@@ -42,8 +43,20 @@ export function SignIn() {
             if (error) throw error;
 
             if (signInData.session) {
-                toast.success("Welcome back!");
-                navigate("/dashboard");
+                // Check if MFA is required
+                const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+                if (factorsError) throw factorsError;
+
+                const verifiedFactors = factors.all.filter(f => f.status === 'verified');
+                if (verifiedFactors.length > 0) {
+                    await logActivity('LOGIN', 'User authenticated with MFA check pending');
+                    // Redirect to MFA verification screen
+                    navigate("/mfa-verify", { state: { factorId: verifiedFactors[0].id } });
+                } else {
+                    await logActivity('LOGIN', 'User successfully signed in');
+                    toast.success("Welcome back!");
+                    navigate("/dashboard");
+                }
             }
         } catch (error: any) {
             console.error("Login error:", error);

@@ -17,9 +17,49 @@ export function SendNotice() {
     const [isLoading, setIsLoading] = useState(true);
     const [userId, setUserId] = useState<string | null>(null);
 
+    const [schedules, setSchedules] = useState<any[]>([]);
+    const [isScheduling, setIsScheduling] = useState(false);
+
+    const [customTemplates, setCustomTemplates] = useState<any[]>([]);
+
     useEffect(() => {
         fetchActionableLoans();
+        fetchCustomTemplates();
     }, []);
+
+    async function fetchCustomTemplates() {
+        try {
+            const { data, error } = await supabase
+                .from('reminder_templates')
+                .select('*');
+            if (error) throw error;
+            setCustomTemplates(data || []);
+        } catch (error) {
+            console.error("Error fetching templates:", error);
+        }
+    }
+
+    useEffect(() => {
+        if (selectedLoanId) {
+            fetchSchedules(selectedLoanId);
+        } else {
+            setSchedules([]);
+        }
+    }, [selectedLoanId]);
+
+    async function fetchSchedules(loanId: string) {
+        try {
+            const { data, error } = await supabase
+                .from('reminder_schedules')
+                .select('*')
+                .eq('loan_id', loanId);
+
+            if (error) throw error;
+            setSchedules(data || []);
+        } catch (error) {
+            console.error("Error fetching schedules:", error);
+        }
+    }
 
     async function fetchActionableLoans() {
         setIsLoading(true);
@@ -45,10 +85,21 @@ export function SendNotice() {
         }
     }
 
-    const templates = [
+    const defaultTemplates = [
         { title: "Friendly Nudge", message: "Hey! Just a friendly reminder about our agreement. Hope all is well!" },
         { title: "Upcoming Due Date", message: "Hi! Just wanted to let you know the due date for our record is approaching soon." },
         { title: "Follow-up", message: "Hello! Checking in on the status of our active loan. Let me know if you have any updates." },
+    ];
+
+    const allTemplates = [
+        ...defaultTemplates,
+        ...customTemplates.map(ct => ({
+            title: ct.name,
+            message: ct.content
+                .replace("{{amount}}", selectedLoan ? `${selectedLoan.currency} ${selectedLoan.amount}` : "balance")
+                .replace("{{borrower}}", selectedLoan?.borrower_name || "the borrower")
+                .replace("{{due_date}}", selectedLoan?.due_date ? new Date(selectedLoan.due_date).toLocaleDateString() : "the due date")
+        }))
     ];
 
     const handleSend = async (message: string) => {
@@ -79,6 +130,41 @@ export function SendNotice() {
             toast.error(error.message || "Failed to deliver notice");
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    const handleToggleSchedule = async (type: string, days_offset: number) => {
+        if (!selectedLoanId) return;
+
+        const existing = schedules.find(s => s.type === type);
+        setIsScheduling(true);
+
+        try {
+            if (existing) {
+                const { error } = await supabase
+                    .from('reminder_schedules')
+                    .update({ is_enabled: !existing.is_enabled })
+                    .eq('id', existing.id);
+                if (error) throw error;
+            } else {
+                const { error } = await supabase
+                    .from('reminder_schedules')
+                    .insert([{
+                        loan_id: selectedLoanId,
+                        type,
+                        days_offset,
+                        channel: 'whatsapp',
+                        is_enabled: true
+                    }]);
+                if (error) throw error;
+            }
+
+            await fetchSchedules(selectedLoanId);
+            toast.success("Schedule updated");
+        } catch (error: any) {
+            toast.error(error.message || "Failed to update schedule");
+        } finally {
+            setIsScheduling(false);
         }
     };
 
@@ -169,7 +255,7 @@ export function SendNotice() {
                                 <div className="space-y-3">
                                     <h3 className="text-[10px] uppercase font-bold tracking-[0.2em] text-slate-400 ml-4">Choose Template</h3>
                                     <div className="grid gap-3">
-                                        {templates.map((tpl, i) => (
+                                        {allTemplates.map((tpl: any, i: number) => (
                                             <button
                                                 key={i}
                                                 className="bg-white border border-slate-200/60 rounded-2xl p-4 text-left hover:border-emerald-300 transition-colors group disabled:opacity-50"
@@ -180,6 +266,48 @@ export function SendNotice() {
                                                 <div className="text-xs text-slate-500 leading-relaxed italic">"{tpl.message}"</div>
                                             </button>
                                         ))}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <h3 className="text-[10px] uppercase font-bold tracking-[0.2em] text-slate-400 ml-4">Automated Reminders</h3>
+                                    <div className="bg-white border border-slate-200/60 rounded-[2rem] overflow-hidden shadow-sm">
+                                        {[
+                                            { type: 'before_due', offset: -3, label: '3 Days Before Due' },
+                                            { type: 'on_due', offset: 0, label: 'On Due Date' },
+                                            { type: 'after_due', offset: 3, label: '3 Days Overdue' }
+                                        ].map((item) => {
+                                            const schedule = schedules.find(s => s.type === item.type);
+                                            const isEnabled = schedule?.is_enabled;
+
+                                            return (
+                                                <div key={item.type} className="flex items-center justify-between p-5 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={cn(
+                                                            "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
+                                                            isEnabled ? "bg-emerald-100 text-emerald-600" : "bg-slate-100 text-slate-400"
+                                                        )}>
+                                                            <Clock className="w-4 h-4" />
+                                                        </div>
+                                                        <span className="text-sm font-bold text-slate-700">{item.label}</span>
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleToggleSchedule(item.type, item.offset)}
+                                                        disabled={isScheduling}
+                                                        className={cn(
+                                                            "rounded-xl font-bold px-4",
+                                                            isEnabled
+                                                                ? "text-emerald-600 bg-emerald-50 hover:bg-emerald-100"
+                                                                : "text-slate-400 bg-slate-50 hover:bg-slate-100"
+                                                        )}
+                                                    >
+                                                        {isEnabled ? "Enabled" : "Enable"}
+                                                    </Button>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
 

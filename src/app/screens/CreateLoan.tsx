@@ -12,10 +12,15 @@ import { Textarea } from "../components/ui/textarea";
 import { SuccessOverlay } from "../components/SuccessOverlay";
 import { ShareOverlay } from "../components/ShareOverlay";
 import { TemplateManager } from "../components/TemplateManager";
+import { PaymentPlanConfig } from "../components/PaymentPlanConfig";
+import { PlanConfig } from "../../lib/LoanCalculator";
 import { cn } from "../components/ui/utils";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
 import { analytics } from "../../lib/analytics";
+import { logActivity } from "../../lib/logger";
+import { secureEncrypt } from "../../lib/encryption";
+import { getPrivacyKey } from "../../lib/privacyKeyStore";
 
 type LoanType = "personal" | "business" | "group";
 
@@ -67,6 +72,10 @@ export function CreateLoan() {
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+
+  // Payment Plan State
+  const [paymentPlan, setPaymentPlan] = useState<PlanConfig | null>(null);
+  const [repaymentSchedule, setRepaymentSchedule] = useState<"one_time" | "installments">("one_time");
 
   // Autosave Logic
   const allValues = watch();
@@ -201,11 +210,13 @@ export function CreateLoan() {
         return;
       }
     }
+
     if (step === 2) {
       const isValid = await trigger(["amount", "due_date"]);
       if (!isValid) return;
     }
-    if (step < 4) {
+
+    if (step < 5) {
       setDirection(1);
       setStep(step + 1);
     }
@@ -232,27 +243,62 @@ export function CreateLoan() {
         return;
       }
 
+      const privacyKey = getPrivacyKey();
+      const encryptedDescription = await secureEncrypt(note || "Shared Ledger Loan", privacyKey);
+
       const { data, error } = await supabase.from('loans').insert([{
         lender_id: user.id,
         amount: amount,
         currency,
         status: 'PENDING',
         borrower_name: borrower_name,
-        description: note || "Shared Ledger Loan",
+        description: encryptedDescription,
         due_date: due_date ? new Date(due_date).toISOString() : null,
         type: type,
         group_id: type === 'group' ? selectedGroupId : null, // Link to group
+        // Payment Plan Fields
+        repayment_schedule: repaymentSchedule,
+        installment_frequency: repaymentSchedule === 'installments' ? paymentPlan?.frequency : null,
+        interest_rate: repaymentSchedule === 'installments' ? paymentPlan?.interestRate : 0,
+        interest_type: repaymentSchedule === 'installments' ? paymentPlan?.interestType : 'simple',
         bank_details: {
           bankName,
           accountName,
           accountNumber
         }
-      }]).select();
+      }])
+        .select()
+        .single();
 
       if (error) throw error;
+      const newLoan = data;
+
+      // Create installments if applicable
+      if (repaymentSchedule === 'installments' && paymentPlan) {
+        // We need to calculate installments client-side again or rely on the stored plan
+        // For security/consistency, usually server-side is better, but here we do client-side creation
+        const { calculateInstallments } = await import("../../lib/LoanCalculator");
+        const installments = calculateInstallments(paymentPlan);
+
+        const installmentsToInsert = installments.map(inst => ({
+          loan_id: newLoan.id,
+          installment_number: inst.number,
+          due_date: inst.dueDate.toISOString(),
+          amount_due: inst.amount,
+          status: 'pending'
+        }));
+
+        const { error: instError } = await supabase.from('installments').insert(installmentsToInsert);
+        if (instError) {
+          console.error("Failed to create installments:", instError);
+          toast.error("Loan created but failed to generate installments. Please contact support.");
+        }
+      }
+
 
       // Track loan creation in analytics
       if (data && data[0]) {
+        await logActivity('LOAN_CREATED', `Created a new loan of ${currency} ${amount} for ${borrower_name}`, { loan_id: data[0].id });
         analytics.loanCreated(data[0].id, {
           type: type,
           amount: amount,
@@ -375,7 +421,7 @@ export function CreateLoan() {
               <h1 className="text-xl font-bold text-white tracking-tight">Create New Loan</h1>
               <div className="flex items-center gap-2 mt-1">
                 <div className="flex gap-1">
-                  {[1, 2, 3, 4].map((s) => (
+                  {[1, 2, 3, 4, 5].map((s) => (
                     <div
                       key={s}
                       className={cn(
@@ -386,7 +432,7 @@ export function CreateLoan() {
                   ))}
                 </div>
                 <span className="text-[10px] uppercase font-bold tracking-widest text-white/70">
-                  Step {step} of 4
+                  Step {step} of 5
                 </span>
               </div>
             </div>
@@ -650,6 +696,63 @@ export function CreateLoan() {
             {step === 3 && (
               <div className="space-y-8">
                 <div className="bg-card border border-border rounded-3xl p-6 shadow-sm">
+                  <h2 className="text-lg font-bold mb-1">Repayment Plan</h2>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    Choose how this loan will be repaid
+                  </p>
+
+                  <div className="flex bg-slate-100 p-1 rounded-xl mb-6">
+                    <button
+                      onClick={() => setRepaymentSchedule("one_time")}
+                      className={cn(
+                        "flex-1 py-3 rounded-lg text-sm font-bold transition-all",
+                        repaymentSchedule === "one_time"
+                          ? "bg-white text-indigo-600 shadow-sm"
+                          : "text-slate-500 hover:text-slate-700"
+                      )}
+                    >
+                      One-time Payment
+                    </button>
+                    <button
+                      onClick={() => setRepaymentSchedule("installments")}
+                      className={cn(
+                        "flex-1 py-3 rounded-lg text-sm font-bold transition-all",
+                        repaymentSchedule === "installments"
+                          ? "bg-white text-indigo-600 shadow-sm"
+                          : "text-slate-500 hover:text-slate-700"
+                      )}
+                    >
+                      Installments
+                    </button>
+                  </div>
+
+                  {repaymentSchedule === "one_time" ? (
+                    <div className="space-y-2">
+                      <Label htmlFor="due_date" className="text-[11px] uppercase font-black tracking-widest text-muted-foreground/70 ml-1">Due Date</Label>
+                      <Input
+                        id="due_date"
+                        type="date"
+                        {...register("due_date")}
+                        className="h-14 bg-muted/30 border-transparent rounded-2xl font-bold"
+                        min={new Date().toISOString().split("T")[0]}
+                      />
+                    </div>
+                  ) : (
+                    <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+                      <PaymentPlanConfig
+                        amount={amount || 0}
+                        startDate={new Date()}
+                        onChange={setPaymentPlan}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {step === 4 && (
+              <div className="space-y-8">
+                <div className="bg-card border border-border rounded-3xl p-6 shadow-sm">
                   <h2 className="text-lg font-bold mb-1">Payout Details</h2>
                   <p className="text-sm text-muted-foreground mb-6">
                     Where should the funds be sent?
@@ -746,7 +849,7 @@ export function CreateLoan() {
               </div>
             )}
 
-            {step === 4 && (
+            {step === 5 && (
               <div className="space-y-6">
                 <div className="text-center mb-8">
                   <div className="w-20 h-20 bg-indigo-500 rounded-3xl rotate-12 flex items-center justify-center mx-auto mb-6 shadow-xl shadow-indigo-500/20">

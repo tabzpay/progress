@@ -9,6 +9,7 @@ import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { ThemeToggle } from "../components/ui/theme-toggle";
+import { PurchaseCreditsModal } from "../components/PurchaseCreditsModal";
 import { analytics, identifyUser } from "../../lib/analytics";
 
 export function Profile() {
@@ -17,6 +18,7 @@ export function Profile() {
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -102,7 +104,7 @@ export function Profile() {
       label: "SMS Credits",
       value: "45 remaining",
       color: "bg-amber-100 text-amber-600",
-      action: () => alert("Purchase SMS credits"),
+      action: () => setIsPurchaseModalOpen(true),
     },
     {
       icon: Moon,
@@ -117,7 +119,7 @@ export function Profile() {
       label: "Language",
       value: "English",
       color: "bg-indigo-100 text-indigo-600",
-      action: () => alert("Change language"),
+      action: () => toast.info("Language settings coming soon! We will support French, Spanish, and Arabic in the next release."),
     },
   ];
 
@@ -339,6 +341,11 @@ export function Profile() {
         confirmText="Sign Out"
         variant="danger"
         icon={LogOut}
+      />
+
+      <PurchaseCreditsModal
+        isOpen={isPurchaseModalOpen}
+        onClose={() => setIsPurchaseModalOpen(false)}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import { ArrowLeft, HelpCircle, BookOpen, BarChart3, Star, FileText, ShieldAlert, Info, ChevronRight, MessageSquare, Newspaper, Zap, Clock } from "lucide-react";
+import { ArrowLeft, HelpCircle, BookOpen, BarChart3, Star, FileText, ShieldAlert, Info, ChevronRight, MessageSquare, Newspaper, Zap, Clock, BellRing, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { Button } from "../components/ui/button";
@@ -24,16 +24,28 @@ export function MoreUtilities() {
 
     const utilityGroups = [
         {
-            title: "Learning & Support",
+            title: "Automation & Security",
             items: [
-                { icon: HelpCircle, label: "Help Center", desc: "Guides and documentation", color: "bg-blue-50 text-blue-600", path: "/help" },
-                { icon: MessageSquare, label: "Contact Support", desc: "Talk to our team", color: "bg-emerald-50 text-emerald-600", path: "/contact" },
+                {
+                    icon: BellRing,
+                    label: "Auto-Reminders",
+                    desc: "Scheduled payment alerts",
+                    path: "/reminder-settings",
+                    color: "bg-indigo-50 text-indigo-600"
+                },
+                {
+                    icon: Shield,
+                    label: "Security Center",
+                    desc: "2FA & Account protection",
+                    path: "/security-settings",
+                    color: "bg-emerald-50 text-emerald-600"
+                },
+                { icon: Zap, label: "Boost Score", desc: "Improve your credit rating", color: "bg-indigo-50 text-indigo-600", path: "/dashboard" },
             ]
         },
         {
             title: "Insights & Stories",
             items: [
-                { icon: BarChart3, label: "Usage Statistics", desc: "Your lending trends", color: "bg-amber-50 text-amber-600", path: "/dashboard" },
                 { icon: Clock, label: "Activity History", desc: "Full log of all communications", color: "bg-indigo-50 text-indigo-600", path: "/activity-log" },
                 { icon: Star, label: "Success Stories", desc: "How others use Progress", color: "bg-violet-50 text-violet-600", path: "/stories" },
             ]

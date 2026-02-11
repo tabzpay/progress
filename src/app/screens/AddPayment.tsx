@@ -16,6 +16,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { PaymentSchema, type PaymentFormData } from "../../lib/schemas";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
+import { logActivity } from "../../lib/logger";
 
 export function AddPayment() {
   const navigate = useNavigate();
@@ -35,7 +36,7 @@ export function AddPayment() {
     clearErrors,
     formState: { errors },
   } = useForm<PaymentFormData>({
-    resolver: zodResolver(PaymentSchema),
+    resolver: zodResolver(PaymentSchema) as any,
     defaultValues: {
       amount: 0,
       note: "",
@@ -149,6 +150,7 @@ export function AddPayment() {
       }
 
       setIsSuccessOpen(true);
+      await logActivity('PAYMENT_RECORDED', `Logged a payment of ${loan.currency} ${data.amount} for loan #${loan.id.slice(0, 8)}`, { loan_id: loanId, amount: data.amount });
       toast.success("Payment successfully logged");
     } catch (error: any) {
       console.error("Error saving payment:", error);
@@ -319,7 +321,7 @@ export function AddPayment() {
 
           {/* New Balance Preview */}
           <AnimatePresence>
-            {amount && parseFloat(amount) > 0 && !error && (
+            {amount && parseFloat(amount.toString()) > 0 && Object.keys(errors).length === 0 && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}

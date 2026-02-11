@@ -1,4 +1,4 @@
-import { ArrowLeft, Calendar, Clock, Bell, Plus, ChevronRight, User, TrendingUp, DollarSign, History, MessageSquare, Send, CheckCircle2, UserPlus, Briefcase } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Bell, Plus, ChevronRight, User, TrendingUp, DollarSign, History, MessageSquare, Send, CheckCircle2, UserPlus, Briefcase, FileText, X } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useState } from "react"; // Added useState import
 import { motion, AnimatePresence } from "motion/react";
@@ -14,6 +14,12 @@ import { useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
 import { EmptyState } from "../components/EmptyState";
+import { FileUploader } from "../components/FileUploader";
+import { DocumentList } from "../components/DocumentList";
+import { InstallmentList } from "../components/InstallmentList";
+import { Label } from "../components/ui/label";
+import { secureDecrypt } from "../../lib/encryption";
+import { getPrivacyKey } from "../../lib/privacyKeyStore";
 
 export function LoanDetail() {
   const navigate = useNavigate();
@@ -25,6 +31,9 @@ export function LoanDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [isSendingReminder, setIsSendingReminder] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
+  const [uploadCategory, setUploadCategory] = useState<"agreement" | "receipt" | "identity" | "other">("agreement");
+  const [refreshDocs, setRefreshDocs] = useState(0);
 
   useEffect(() => {
     fetchLoanDetail();
@@ -43,6 +52,13 @@ export function LoanDetail() {
         .single();
 
       if (error) throw error;
+
+      // Decrypt description if needed
+      const privacyKey = getPrivacyKey();
+      if (data.description) {
+        data.description = await secureDecrypt(data.description, privacyKey);
+      }
+
       setLoan(data);
     } catch (error: any) {
       console.error("Error fetching loan detail:", error);
@@ -103,6 +119,30 @@ export function LoanDetail() {
       toast.error(error.message || "Failed to log reminder");
     } finally {
       setIsSendingReminder(false);
+    }
+  };
+
+  const handleUploadComplete = async (path: string, file: File) => {
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .insert([{
+          loan_id: loanId,
+          uploader_id: userId,
+          file_path: path,
+          file_type: file.type,
+          file_size: file.size,
+          category: uploadCategory
+        }]);
+
+      if (error) throw error;
+
+      toast.success("Document attached successfully");
+      setShowUpload(false);
+      setRefreshDocs(prev => prev + 1);
+    } catch (error: any) {
+      console.error("Error saving document record:", error);
+      toast.error("Failed to save document record");
     }
   };
 
@@ -390,6 +430,82 @@ export function LoanDetail() {
                 />
               )}
             </div>
+          </motion.div>
+
+          {/* Documents Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-white border border-slate-200/60 rounded-[2.5rem] p-8 shadow-sm"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-black tracking-tight text-slate-900">Documents</h3>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowUpload(!showUpload)}
+                  className="bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl font-bold text-xs"
+                >
+                  {showUpload ? <X className="w-4 h-4 mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
+                  {showUpload ? "Cancel" : "Add New"}
+                </Button>
+                <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500">
+                  <FileText className="w-5 h-5" />
+                </div>
+              </div>
+            </div>
+
+            <AnimatePresence>
+              {showUpload && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden mb-6"
+                >
+                  <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
+                    <div className="mb-4">
+                      <Label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">Document Type</Label>
+                      <div className="flex gap-2 overflow-x-auto pb-2">
+                        {(['agreement', 'receipt', 'identity', 'other'] as const).map((cat) => (
+                          <button
+                            key={cat}
+                            onClick={() => setUploadCategory(cat)}
+                            className={cn(
+                              "px-4 py-2 rounded-xl text-xs font-bold transition-all border shrink-0 capitalize",
+                              uploadCategory === cat
+                                ? "bg-indigo-600 border-indigo-600 text-white shadow-md"
+                                : "bg-white border-slate-200 text-slate-500 hover:border-indigo-300"
+                            )}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <FileUploader
+                      bucketName="loan-documents"
+                      folder={loanId}
+                      onUploadComplete={handleUploadComplete}
+                      acceptedFileTypes={{
+                        'application/pdf': ['.pdf'],
+                        'image/jpeg': ['.jpg', '.jpeg'],
+                        'image/png': ['.png']
+                      }}
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <DocumentList
+              loanId={loanId || ""}
+              currentUserId={userId || ""}
+              refreshTrigger={refreshDocs}
+            />
           </motion.div>
         </div>
       </main>

@@ -26,15 +26,35 @@ export function ActivityLog() {
             if (!user) return;
             setUserId(user.id);
 
-            // Fetch loans where user is either lender or borrower, including related data
-            const { data, error } = await supabase
+            // Fetch dedicated activity logs
+            const { data: auditLogs, error: auditError } = await supabase
+                .from('activity_log')
+                .select('*')
+                .eq('user_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (auditError) throw auditError;
+
+            // Fetch loans for synthetic activities (payments/notices)
+            const { data: loanData, error: loanError } = await supabase
                 .from('loans')
                 .select('*, repayments(*), reminders(*)')
                 .or(`lender_id.eq.${user.id},borrower_id.eq.${user.id}`);
 
-            if (error) throw error;
+            if (loanError) throw loanError;
 
-            const flattened = (data || []).flatMap((loan: any) => [
+            const structuredAudit = (auditLogs || []).map((log: any) => ({
+                id: log.id,
+                type: log.activity_type.toLowerCase() as any,
+                loanId: log.metadata?.loan_id,
+                title: log.activity_type.replace(/_/g, " "),
+                message: log.description,
+                date: log.created_at,
+                borrower: "System",
+                amount: log.metadata?.amount || 0,
+            }));
+
+            const synthetic = (loanData || []).flatMap((loan: any) => [
                 ...(loan.reminders || []).map((r: any) => ({
                     id: r.id,
                     type: "notice" as const,
@@ -43,7 +63,7 @@ export function ActivityLog() {
                     message: r.message,
                     date: r.created_at,
                     borrower: loan.borrower_name,
-                    amount: loan.amount, // Or some other logic if needed
+                    amount: 0,
                 })),
                 ...(loan.repayments || []).map((rp: any) => ({
                     id: rp.id,
@@ -55,9 +75,13 @@ export function ActivityLog() {
                     borrower: loan.borrower_name,
                     amount: rp.amount,
                 }))
-            ]).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            ]);
 
-            setActivities(flattened);
+            const combined = [...structuredAudit, ...synthetic].sort((a: any, b: any) =>
+                new Date(b.date).getTime() - new Date(a.date).getTime()
+            );
+
+            setActivities(combined);
         } catch (error: any) {
             console.error("Error fetching activities:", error);
             toast.error("Failed to load history");
@@ -110,6 +134,26 @@ export function ActivityLog() {
                             <p className="text-white/60 text-[10px] font-bold uppercase tracking-[0.2em] mt-1">Full app history</p>
                         </div>
                     </div>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                            const headers = "Type,Date,Title,Message,Amount\n";
+                            const rows = filteredActivities.map(a =>
+                                `"${a.type}","${a.date}","${a.title}","${a.message}","${a.amount}"`
+                            ).join("\n");
+                            const blob = new Blob([headers + rows], { type: 'text/csv' });
+                            const url = window.URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `activity-log-${new Date().toISOString().split('T')[0]}.csv`;
+                            a.click();
+                            toast.success("Audit log exported to CSV");
+                        }}
+                        className="absolute top-8 right-4 text-white hover:bg-white/10 rounded-xl px-4 h-10 border border-white/20 backdrop-blur-sm transition-all"
+                    >
+                        Export CSV
+                    </Button>
                 </div>
             </header>
 
