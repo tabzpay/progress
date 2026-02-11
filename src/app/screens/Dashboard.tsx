@@ -15,6 +15,7 @@ import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
 import { DashboardSkeleton } from "../components/Skeletons";
 import { exportToCSV } from "../../lib/csvExport";
+import { requestNotificationPermission, notifyIfPossible } from "../../lib/notifications";
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -49,6 +50,8 @@ export function Dashboard() {
         fetchLoans();
         fetchNotifications(user.id);
         subscribeToNotifications(user.id);
+        // Request browser notification permission
+        requestNotificationPermission();
       } else {
         setIsLoading(false);
       }
@@ -86,6 +89,7 @@ export function Dashboard() {
         (payload: any) => {
           setNotifications(prev => [payload.new, ...prev]);
           toast.info(`New alert: ${payload.new.title}`);
+          notifyIfPossible(payload.new.title, { body: payload.new.message });
         }
       )
       .subscribe();

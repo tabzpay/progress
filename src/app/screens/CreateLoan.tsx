@@ -32,7 +32,7 @@ export function CreateLoan() {
     trigger,
     formState: { errors },
   } = useForm<LoanFormData>({
-    resolver: zodResolver(LoanSchema),
+    resolver: zodResolver(LoanSchema) as any,
     defaultValues: {
       type: "personal",
       currency: "USD",
@@ -67,6 +67,64 @@ export function CreateLoan() {
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+
+  // Autosave Logic
+  const allValues = watch();
+
+  useEffect(() => {
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const savedDraft = localStorage.getItem(`loan_draft_${user.id}`);
+      if (savedDraft) {
+        try {
+          const { formData, bankName: bName, accountName: aName, accountNumber: aNum, selectedGroupId: sId, step: sStep } = JSON.parse(savedDraft);
+
+          if (formData) {
+            Object.entries(formData).forEach(([key, value]) => {
+              setValue(key as any, value);
+            });
+          }
+
+          if (bName) setBankName(bName);
+          if (aName) setAccountName(aName);
+          if (aNum) setAccountNumber(aNum);
+          if (sId) setSelectedGroupId(sId);
+          if (sStep) setStep(sStep);
+
+          toast.info("Progress restored from draft", {
+            description: "We've loaded your last unsaved loan record.",
+            duration: 4000
+          });
+        } catch (e) {
+          console.error("Failed to restore draft", e);
+        }
+      }
+    };
+    init();
+  }, [setValue]);
+
+  useEffect(() => {
+    const saveDraft = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const draft = {
+        formData: allValues,
+        bankName,
+        accountName,
+        accountNumber,
+        selectedGroupId,
+        step,
+        updatedAt: new Date().toISOString()
+      };
+      localStorage.setItem(`loan_draft_${user.id}`, JSON.stringify(draft));
+    };
+
+    const timer = setTimeout(saveDraft, 1000);
+    return () => clearTimeout(timer);
+  }, [allValues, bankName, accountName, accountNumber, selectedGroupId, step]);
 
   useEffect(() => {
     fetchGroups();
@@ -216,6 +274,9 @@ export function CreateLoan() {
 
       setIsSuccessOpen(true);
       toast.success("Loan successfully created!");
+
+      // Clear draft on success
+      localStorage.removeItem(`loan_draft_${user.id}`);
     } catch (error: any) {
       console.error("Error creating loan:", error);
       toast.error(error.message || "Failed to create loan");

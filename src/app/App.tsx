@@ -32,6 +32,7 @@ import { supabase } from "../lib/supabase";
 import { KeyboardShortcutsProvider } from "./components/KeyboardShortcutsProvider";
 import { CommandPalette } from "./components/CommandPalette";
 import { HelpModal } from "./components/HelpModal";
+import { BottomNav } from "./components/BottomNav";
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -112,6 +113,7 @@ export default function App() {
         <Toaster />
         <CommandPalette />
         <HelpModal />
+        {isAuthenticated && <BottomNav />}
       </KeyboardShortcutsProvider>
     </BrowserRouter>
   );
