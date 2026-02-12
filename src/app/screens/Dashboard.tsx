@@ -1,5 +1,6 @@
-import { Plus, DollarSign, FileText, Menu, User, Search, Filter, ArrowRight, BellRing, UserPlus, HeartPulse, AlertTriangle, CheckCircle2, Navigation, Download, Tag } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Plus, DollarSign, FileText, Menu, User, Search, Filter, ArrowRight, BellRing, UserPlus, HeartPulse, AlertTriangle, CheckCircle2, Navigation, Download, Tag, Sparkles } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { SEO } from "../components/SEO";
 import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { LoanCard } from "../components/LoanCard";
@@ -13,6 +14,7 @@ import { Label } from "../components/ui/label";
 import { mockLoans, currentUser, Loan, mockNotifications } from "../data/mockData";
 import { NotificationHub } from "../components/NotificationHub";
 import { cn } from "../components/ui/utils";
+import { WelcomeTooltip } from "../components/WelcomeTooltip";
 import { analytics } from "../../lib/analytics";
 import { secureDecrypt, isEncrypted } from "../../lib/encryption";
 import { getPrivacyKey } from "../../lib/privacyKeyStore";
@@ -29,6 +31,9 @@ import { useAuth } from "../../lib/contexts/AuthContext";
 export function Dashboard() {
   const { user, signOut: logOut } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const showWelcome = searchParams.get("welcome") === "true";
+  const [isWelcomeVisible, setIsWelcomeVisible] = useState(showWelcome);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<"all" | "lent" | "borrowed">("all");
   const [currency, setCurrency] = useState("USD");
@@ -54,6 +59,15 @@ export function Dashboard() {
   const [endDate, setEndDate] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+
+  const getTimeGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 17) return "Good Afternoon";
+    return "Good Evening";
+  };
+
+  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
 
   const mapLoanStatus = (status: string): "active" | "partial" | "completed" | "overdue" => {
     switch (status.toUpperCase()) {
@@ -195,7 +209,6 @@ export function Dashboard() {
           table: 'loans'
         },
         () => {
-          console.log("Real-time update: loans table changed. Refreshing...");
           fetchLoans();
         }
       )
@@ -207,7 +220,6 @@ export function Dashboard() {
           table: 'repayments'
         },
         () => {
-          console.log("Real-time update: repayments table changed. Refreshing...");
           fetchLoans();
         }
       )
@@ -544,7 +556,8 @@ export function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-[#F8FAFC] pb-32">
+      <SEO title="Dashboard" description="Overview of your active loans, reminders, and financial health." />
       {/* Premium Header */}
       <header className="relative overflow-hidden pt-8 md:pt-10 pb-12 md:pb-16 px-4 md:px-6 shadow-2xl">
         {/* Animated Background Gradients */}
@@ -695,6 +708,26 @@ export function Dashboard() {
                 key={currency + activeFilter}
                 className="text-center mb-10 md:mb-14"
               >
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-3 space-y-1"
+                >
+                  <h3 className="text-white/60 text-lg md:text-xl font-medium tracking-tight">
+                    {getTimeGreeting()}, <span className="text-white font-bold">{displayName}</span>
+                  </h3>
+                  {!showWelcome && activeLoansCount > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.5 }}
+                      className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/10 text-[10px] font-black text-white/80 uppercase tracking-widest"
+                    >
+                      <Sparkles className="w-3 h-3 text-blue-400" />
+                      {activeLoansCount} Active {activeLoansCount === 1 ? 'Record' : 'Records'}
+                    </motion.div>
+                  )}
+                </motion.div>
                 <motion.p
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 0.8 }}
@@ -1460,6 +1493,17 @@ export function Dashboard() {
           </div>
         )}
       </AnimatePresence>
+
+      <WelcomeTooltip
+        isVisible={isWelcomeVisible}
+        onDismiss={() => {
+          setIsWelcomeVisible(false);
+          // Clear the search param so it doesn't show again on refresh
+          const newParams = new URLSearchParams(searchParams);
+          newParams.delete("welcome");
+          setSearchParams(newParams, { replace: true });
+        }}
+      />
     </div>
   );
 }

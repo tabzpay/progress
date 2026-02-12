@@ -17,6 +17,7 @@ interface LoanTemplate {
     default_amount?: number;
     bank_name?: string;
     account_name?: string;
+    account_number?: string;
     notes?: string;
     created_at: string;
 }
@@ -169,6 +170,7 @@ export function TemplateManager({ isOpen, onClose, onSelectTemplate }: TemplateM
                                                     <p className="font-medium">
                                                         🏦 {template.bank_name}
                                                         {template.account_name && ` • ${template.account_name}`}
+                                                        {template.account_number && ` • ${template.account_number}`}
                                                     </p>
                                                 )}
                                                 {template.notes && (

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Handshake, ArrowRight, Check, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -10,12 +10,21 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LoginSchema, type LoginFormData } from "../../lib/schemas";
 import { supabase } from "../../lib/supabase";
+import { SEO } from "../components/SEO";
 import { toast } from "sonner";
 import { cn } from "../components/ui/utils";
 import { logActivity } from "../../lib/logger";
+import { useAuth } from "../../lib/contexts/AuthContext";
 
 export function SignIn() {
     const navigate = useNavigate();
+    const { user, loading } = useAuth();
+
+    useEffect(() => {
+        if (!loading && user) {
+            navigate("/dashboard", { replace: true });
+        }
+    }, [user, loading, navigate]);
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -75,7 +84,8 @@ export function SignIn() {
     };
 
     return (
-        <div className="min-h-screen bg-background flex overflow-hidden">
+        <div className="min-h-screen bg-white relative selection:bg-indigo-50">
+            <SEO title="Sign In" description="Securely access your Progress account." />
             {/* Left Panel - Marketing (Hidden on Mobile) */}
             <div className="hidden lg:flex lg:w-1/2 relative bg-primary text-primary-foreground p-12 flex-col justify-between overflow-hidden">
                 {/* Decorative Background */}

@@ -29,6 +29,7 @@ import { ActivityLog } from "./screens/ActivityLog";
 import { ReminderSettings } from "./screens/ReminderSettings";
 import SecuritySettings from "./screens/SecuritySettings";
 import MFAVerify from "./screens/MFAVerify";
+import { CreditHealth } from "./screens/CreditHealth";
 import { AnalyticsDashboard } from "./screens/AnalyticsDashboard";
 import { Toaster } from "./components/ui/sonner";
 import { KeyboardShortcutsProvider } from "./components/KeyboardShortcutsProvider";
@@ -80,6 +81,7 @@ function AppRoutes() {
         <Route path="/reminder-settings" element={<ReminderSettings />} />
         <Route path="/security-settings" element={<SecuritySettings />} />
         <Route path="/mfa-verify" element={<MFAVerify />} />
+        <Route path="/credit-health" element={<CreditHealth />} />
         <Route path="/design-system" element={<DesignSystem />} />
       </Route>
 

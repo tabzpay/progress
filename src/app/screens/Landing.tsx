@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Header } from "../components/marketing/Header";
@@ -21,9 +21,11 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
-import { motion, useScroll, useTransform } from "motion/react";
-import { useState } from "react";
+import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
+import { SEO } from "../components/SEO";
+import { useState, useEffect } from "react";
 import { cn } from "../components/ui/utils";
+import { useAuth } from "../../lib/contexts/AuthContext";
 
 // Animation variants
 const fadeIn = {
@@ -42,12 +44,24 @@ const staggerContainer = {
 };
 
 export function Landing() {
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
   const { scrollY } = useScroll();
   const headerOpacity = useTransform(scrollY, [0, 50], [0, 1]);
   const headerY = useTransform(scrollY, [0, 50], [-20, 0]);
 
+  useEffect(() => {
+    if (!loading && user) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [user, loading, navigate]);
+
   return (
     <div className="min-h-screen bg-background font-sans selection:bg-primary/20">
+      <SEO
+        title="Home"
+        description="Informal Lending, Reimagined. Track loans, build credit, and maintain healthy financial relationships with Progress."
+      />
       <Header />
 
       {/* Hero Section - Overhauled for Premium Feel */}

@@ -156,6 +156,27 @@ export function GroupDetail() {
             </header>
 
             <main className="max-w-xl mx-auto px-4 -mt-6 relative z-20 space-y-6">
+                {/* Group Summary Card */}
+                <div className="bg-white rounded-[2rem] p-6 shadow-xl shadow-indigo-900/5 border border-white relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-6 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity">
+                        <Users className="w-24 h-24" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 relative z-10">
+                        <div className="space-y-1">
+                            <p className="text-[10px] uppercase font-black tracking-widest text-slate-400">Total Lent</p>
+                            <p className="text-2xl font-black text-emerald-500 tabular-nums">
+                                ${loans.filter(l => l.lender_id === userId).reduce((acc, curr) => acc + Number(curr.amount), 0).toLocaleString()}
+                            </p>
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-[10px] uppercase font-black tracking-widest text-slate-400">Total Borrowed</p>
+                            <p className="text-2xl font-black text-rose-500 tabular-nums">
+                                ${loans.filter(l => l.lender_id !== userId).reduce((acc, curr) => acc + Number(curr.amount), 0).toLocaleString()}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Members Section (Horizontal Scroll) */}
                 <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
                     <div className="flex items-center justify-between mb-4">
@@ -212,6 +233,12 @@ export function GroupDetail() {
                                 <span className="text-[10px] font-bold text-slate-600 text-center truncate w-full">
                                     {member.user_id === userId ? "You" : (member.profiles?.full_name?.split(' ')[0] || "User")}
                                 </span>
+                                <div className={cn(
+                                    "text-[9px] font-black tabular-nums px-1.5 py-0.5 rounded-md",
+                                    (member.balance || 0) >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+                                )}>
+                                    {(member.balance || 0) >= 0 ? "+" : ""}${Number(member.balance || 0).toLocaleString()}
+                                </div>
                                 {member.role === 'admin' && (
                                     <span className="text-[8px] font-black text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-full uppercase">
                                         Admin

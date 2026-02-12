@@ -41,6 +41,12 @@ export const RegisterSchema = z.object({
         .regex(/[0-9]/, "Password must contain at least one number"),
     phone: z.string().optional(),
     intent: z.enum(["lend", "borrow", "explore"]).optional(),
+    occupation: z.string().optional(),
+    avatar_url: z.string().url("Invalid URL").optional(),
+    currency: z.string().min(1, "Currency is required"),
+    timezone: z.string().optional(),
+    preferred_channel: z.enum(["whatsapp", "sms", "email"]),
+    attribution: z.string().optional(),
 });
 
 export type RegisterFormData = z.infer<typeof RegisterSchema>;
@@ -63,6 +69,9 @@ export const ProfileSchema = z.object({
     email: z.string().email("Invalid email address"),
     phone: z.string().optional(),
     avatar_url: z.string().url("Invalid URL").optional().nullable(),
+    occupation: z.string().optional(),
+    currency: z.string().optional(),
+    preferred_channel: z.enum(["whatsapp", "sms", "email"]).optional(),
 });
 
 export type ProfileFormData = z.infer<typeof ProfileSchema>;

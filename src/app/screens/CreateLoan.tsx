@@ -397,6 +397,7 @@ export function CreateLoan() {
         default_amount: amount || null,
         bank_name: bankName || null,
         account_name: accountName || null,
+        account_number: accountNumber || null,
         notes: note || null,
       }]);
 
@@ -420,7 +421,8 @@ export function CreateLoan() {
     if (template.default_amount) setValue("amount", template.default_amount);
     if (template.bank_name) setBankName(template.bank_name);
     if (template.account_name) setAccountName(template.account_name);
-    if (template.note) setValue("note", template.note);
+    if (template.account_number) setAccountNumber(template.account_number);
+    if (template.notes) setValue("note", template.notes);
 
     toast.success(`Template "${template.name}" loaded!`);
   };

@@ -1,4 +1,4 @@
-import { ArrowLeft, User, Phone, Bell, Globe, CreditCard, LogOut, ChevronRight, Settings, ShieldCheck, HelpCircle, Info, Moon } from "lucide-react";
+import { ArrowLeft, User, Phone, Bell, Globe, CreditCard, LogOut, ChevronRight, Settings, ShieldCheck, HelpCircle, Info, Moon, Briefcase } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { Button } from "../components/ui/button";
@@ -125,6 +125,13 @@ export function Profile() {
 
   const appSettings = [
     {
+      icon: Briefcase,
+      label: "Occupation",
+      value: profile?.occupation || "Not set",
+      color: "bg-slate-100 text-slate-600",
+      action: () => navigate("/profile/edit"),
+    },
+    {
       icon: ShieldCheck,
       label: "Privacy & Security",
       value: "Policy & Terms",
@@ -138,13 +145,6 @@ export function Profile() {
       color: "bg-violet-100 text-violet-600",
       action: () => navigate("/help"),
     },
-    {
-      icon: Info,
-      label: "About Progress",
-      value: "Version 1.2.0",
-      color: "bg-slate-100 text-slate-600",
-      action: () => navigate("/about"),
-    }
   ];
 
   return (
@@ -211,8 +211,20 @@ export function Profile() {
                 <p className="text-slate-400 font-bold tabular-nums text-sm mt-0.5 tracking-wide">
                   {user?.email || user?.phone}
                 </p>
-                <div className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase tracking-wider mt-2 border border-emerald-100">
-                  Verified Member
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <div className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase tracking-wider border border-emerald-100">
+                    Verified Member
+                  </div>
+                  {profile?.onboarding_intent && (
+                    <div className="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold uppercase tracking-wider border border-indigo-100">
+                      Goal: {profile.onboarding_intent === 'lend' ? 'Lending' : profile.onboarding_intent === 'borrow' ? 'Borrowing' : 'Exploring'}
+                    </div>
+                  )}
+                  {profile?.currency && (
+                    <div className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 text-[10px] font-bold uppercase tracking-wider border border-amber-100">
+                      Currency: {profile.currency}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

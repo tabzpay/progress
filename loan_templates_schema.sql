@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS public.loan_templates (
   default_amount NUMERIC,
   bank_name TEXT,
   account_name TEXT,
+  account_number TEXT,
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL

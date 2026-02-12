@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, User, Phone, Mail, Camera, Save, X } from "lucide-react";
+import { ArrowLeft, User, Phone, Mail, Camera, Save, X, Briefcase, DollarSign } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "../components/ui/button";
@@ -34,6 +34,8 @@ export function EditProfile() {
             full_name: "",
             phone: "",
             email: "",
+            occupation: "",
+            currency: "",
         },
     });
 
@@ -46,6 +48,8 @@ export function EditProfile() {
                 full_name: user.user_metadata?.full_name || "",
                 phone: user.phone || "",
                 email: user.email || "",
+                occupation: user.user_metadata?.occupation || "",
+                currency: user.user_metadata?.currency || "USD",
             });
         }
         setIsLoading(false);
@@ -57,7 +61,11 @@ export function EditProfile() {
             if (!user) throw new Error("No user session");
 
             const { error: authError } = await supabase.auth.updateUser({
-                data: { full_name: data.full_name }
+                data: {
+                    full_name: data.full_name,
+                    occupation: data.occupation,
+                    currency: data.currency
+                }
             });
             if (authError) throw authError;
 
@@ -65,7 +73,9 @@ export function EditProfile() {
                 .from('profiles')
                 .upsert({
                     id: user.id,
-                    full_name: data.full_name
+                    full_name: data.full_name,
+                    occupation: data.occupation,
+                    currency: data.currency
                 });
             if (profileError) throw profileError;
 
@@ -173,6 +183,40 @@ export function EditProfile() {
                                 />
                             </div>
                             {errors.phone && <p className="text-[10px] text-red-500 font-bold uppercase tracking-wider ml-1 mt-1">{errors.phone.message}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="occupation" className="text-[11px] uppercase font-black tracking-widest text-slate-400 ml-1">Occupation</Label>
+                            <div className="relative group">
+                                <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+                                <Input
+                                    id="occupation"
+                                    type="text"
+                                    placeholder="e.g. Software Engineer"
+                                    {...register("occupation")}
+                                    className={cn(
+                                        "pl-11 h-14 bg-slate-50 border-transparent focus:bg-white focus:ring-primary/20 focus:border-primary/20 rounded-2xl transition-all font-bold",
+                                        errors.occupation && "border-red-500 bg-red-50/10"
+                                    )}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="currency" className="text-[11px] uppercase font-black tracking-widest text-slate-400 ml-1">Currency</Label>
+                            <div className="relative group">
+                                <DollarSign className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+                                <Input
+                                    id="currency"
+                                    type="text"
+                                    placeholder="USD"
+                                    {...register("currency")}
+                                    className={cn(
+                                        "pl-11 h-14 bg-slate-50 border-transparent focus:bg-white focus:ring-primary/20 focus:border-primary/20 rounded-2xl transition-all font-bold",
+                                        errors.currency && "border-red-500 bg-red-50/10"
+                                    )}
+                                />
+                            </div>
                         </div>
 
                         <div className="space-y-2">

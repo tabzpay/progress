@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
     ArrowRight,
@@ -12,7 +12,17 @@ import {
     Shield,
     Briefcase,
     Eye,
-    EyeOff
+    EyeOff,
+    Globe,
+    Clock,
+    Target,
+    DollarSign,
+    MessageSquare,
+    Search,
+    Fingerprint,
+    Sparkles,
+    CircleDashed,
+    Layers
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -20,16 +30,48 @@ import { Label } from "../components/ui/label";
 import { motion, AnimatePresence } from "motion/react";
 import { cn } from "../components/ui/utils";
 import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../lib/contexts/AuthContext";
 import { toast } from "sonner";
-
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { SEO } from "../components/SEO";
 import { RegisterSchema, type RegisterFormData } from "../../lib/schemas";
 
-type Step = "credentials" | "profile" | "intent";
+type Step = "credentials" | "profile" | "preferences" | "intent";
+
+const CURRENCIES = [
+    { code: "USD", symbol: "$", label: "US Dollar" },
+    { code: "NGN", symbol: "₦", label: "Nigerian Naira" },
+    { code: "GHS", symbol: "₵", label: "Ghanaian Cedi" },
+    { code: "KES", symbol: "KSh", label: "Kenyan Shilling" },
+    { code: "EUR", symbol: "€", label: "Euro" },
+    { code: "GBP", symbol: "£", label: "British Pound" },
+];
+
+const CHANNELS = [
+    { id: "whatsapp", label: "WhatsApp", icon: MessageSquare },
+    { id: "sms", label: "SMS", icon: Smartphone },
+    { id: "email", label: "Email", icon: Mail },
+];
+
+const ATTRIBUTIONS = [
+    "Social Media",
+    "Friend/Family",
+    "Search Engine",
+    "News/Blog",
+    "App Store",
+    "Other"
+];
 
 export function Register() {
     const navigate = useNavigate();
+    const { user, loading } = useAuth();
+
+    useEffect(() => {
+        if (!loading && user) {
+            navigate("/dashboard", { replace: true });
+        }
+    }, [user, loading, navigate]);
     const [step, setStep] = useState<Step>("credentials");
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
@@ -42,13 +84,19 @@ export function Register() {
         setValue,
         formState: { errors },
     } = useForm<RegisterFormData>({
-        resolver: zodResolver(RegisterSchema),
+        resolver: zodResolver(RegisterSchema) as any,
         defaultValues: {
             email: "",
             password: "",
             full_name: "",
             phone: "",
             intent: undefined,
+            occupation: "",
+            currency: "USD",
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            preferred_channel: "whatsapp",
+            attribution: "",
+            avatar_url: "",
         },
     });
 
@@ -57,6 +105,11 @@ export function Register() {
     const full_name = watch("full_name");
     const phone = watch("phone");
     const intent = watch("intent");
+    const occupation = watch("occupation");
+    const currency = watch("currency");
+    const timezone = watch("timezone");
+    const preferred_channel = watch("preferred_channel");
+    const attribution = watch("attribution");
 
     const handleRegister = async (data: RegisterFormData) => {
         setIsLoading(true);
@@ -69,7 +122,12 @@ export function Register() {
                     data: {
                         full_name: data.full_name,
                         phone: data.phone,
-                        intent: data.intent
+                        intent: data.intent,
+                        occupation: data.occupation,
+                        currency: data.currency,
+                        timezone: data.timezone,
+                        preferred_channel: data.preferred_channel,
+                        attribution: data.attribution
                     }
                 }
             });
@@ -79,7 +137,7 @@ export function Register() {
             if (signUpData.user) {
                 if (signUpData.session) {
                     toast.success("Account created! Welcome to Progress.");
-                    navigate("/dashboard");
+                    navigate("/dashboard?welcome=true");
                 } else {
                     toast.success("Account created! Please check your email for verification before signing in.");
                     navigate("/sign-in");
@@ -99,7 +157,11 @@ export function Register() {
             if (isValid) setStep("profile");
         }
         else if (step === "profile") {
-            const isValid = await trigger(["full_name"]);
+            const isValid = await trigger(["full_name", "occupation"]);
+            if (isValid) setStep("preferences");
+        }
+        else if (step === "preferences") {
+            const isValid = await trigger(["currency", "preferred_channel"]);
             if (isValid) setStep("intent");
         }
         else {
@@ -108,8 +170,9 @@ export function Register() {
     };
 
     const handleBack = () => {
-        if (step === "intent") setStep("profile");
-        else if (step === "profile") setStep("credentials");
+        if (step === "profile") setStep("credentials");
+        else if (step === "preferences") setStep("profile");
+        else if (step === "intent") setStep("preferences");
     };
 
     // Password strength calculation
@@ -133,64 +196,113 @@ export function Register() {
     };
 
     return (
-        <div className="min-h-screen bg-background flex overflow-hidden">
-            {/* Left Panel - Marketing (Same as Auth for consistency, but maybe slightly tweaked text) */}
-            <div className="hidden lg:flex lg:w-1/2 relative bg-primary text-primary-foreground p-12 flex-col justify-between overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary to-blue-600 z-0" />
-                <div className="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-[100px] transform translate-x-1/2 -translate-y-1/2" />
-                <div className="absolute bottom-0 left-0 w-64 h-64 bg-black/10 rounded-full blur-[80px] transform -translate-x-1/2 translate-y-1/2" />
+        <div className="min-h-screen bg-white selection:bg-indigo-50 relative">
+            <SEO title="Join Progress" description="Create your account and start tracking your informal loans with precision." />
+            {/* Minimalist Atmospheric Glows */}
+            <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+                <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-blue-500/10 rounded-full blur-[140px] animate-pulse" />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/5 rounded-full blur-[100px] animate-pulse [animation-delay:3s]" />
+            </div>
+
+            {/* Subtle Texture Overlay */}
+            <div className="fixed inset-0 z-0 pointer-events-none opacity-[0.03] bg-[url('https://www.transparenttextures.com/patterns/noise-lines.png')]" />
+
+            {/* Left Panel - Brand & Hero */}
+            <div className="hidden lg:flex lg:w-[40%] xl:w-[35%] relative bg-slate-950 text-white p-12 lg:p-16 flex-col justify-between overflow-hidden shadow-2xl border-r border-white/5">
+                <div className="absolute inset-0 bg-gradient-to-b from-slate-900 to-slate-950 z-0" />
 
                 <div className="relative z-10">
-                    <Link to="/" className="inline-flex items-center gap-2 text-white mb-12 hover:opacity-80 transition-opacity">
-                        <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
-                            <Handshake className="w-6 h-6" />
+                    <Link to="/" className="inline-flex items-center gap-3 text-white mb-16 group hover:opacity-90 transition-all">
+                        <div className="bg-white/5 p-2.5 rounded-xl backdrop-blur-2xl border border-white/10 group-hover:scale-105 group-hover:bg-white/10 transition-all shadow-2xl shadow-black/40">
+                            <Handshake className="w-6 h-6 text-blue-400/80" />
                         </div>
-                        <span className="text-xl font-bold tracking-tight">Progress</span>
+                        <span className="text-xl font-black tracking-[-0.05em] text-white">Progress</span>
                     </Link>
 
                     <div className="max-w-md">
-                        <h1 className="text-5xl font-extrabold mb-6 leading-tight">
-                            Start your journey to clarity.
-                        </h1>
-                        <p className="text-lg text-primary-foreground/90 leading-relaxed mb-8">
-                            Create an account to track loans, send reminders, and keep your relationships strong.
-                        </p>
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 1, ease: [0.19, 1, 0.22, 1] }}
+                        >
+                            <h1 className="text-5xl lg:text-6xl font-bold mb-6 leading-[1.1] tracking-[-0.03em] text-white">
+                                Start your <br />
+                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-300">journey</span> <br />
+                                to clarity.
+                            </h1>
+                            <p className="text-base text-slate-400 leading-relaxed font-medium mt-8 max-w-[90%]">
+                                Sophisticated tools for personal lending. <br />
+                                Maintain trust, track every detail.
+                            </p>
+                        </motion.div>
                     </div>
                 </div>
 
-                {/* Step Indicator (Desktop) */}
-                <div className="relative z-10 flex gap-2">
-                    {[1, 2, 3].map((i) => (
-                        <div
-                            key={i}
-                            className={cn(
-                                "h-1 w-8 rounded-full transition-all duration-300",
-                                (step === "credentials" && i === 1) ||
-                                    (step === "profile" && i <= 2) ||
-                                    (step === "intent" && i <= 3)
-                                    ? "bg-white"
-                                    : "bg-white/20"
-                            )}
+                {/* Desktop Stepper - Minimalist */}
+                <div className="relative z-10 w-full max-w-[280px]">
+                    <div className="flex justify-between items-center mb-8">
+                        {[1, 2, 3, 4].map((i) => (
+                            <div key={i} className="flex flex-col items-center gap-3">
+                                <motion.div
+                                    initial={false}
+                                    animate={{
+                                        backgroundColor: ((step === "credentials" && i === 1) || (step === "profile" && i === 2) || (step === "preferences" && i === 3) || (step === "intent" && i === 4)) ? "#ffffff" :
+                                            ((step === "profile" && i < 2) || (step === "preferences" && i < 3) || (step === "intent" && i < 4)) ? "rgba(96,165,250,0.2)" : "rgba(255,255,255,0.03)"
+                                    }}
+                                    className={cn(
+                                        "w-9 h-9 rounded-full flex items-center justify-center transition-all duration-700 border",
+                                        ((step === "credentials" && i === 1) || (step === "profile" && i === 2) || (step === "preferences" && i === 3) || (step === "intent" && i === 4))
+                                            ? "text-slate-950 border-white shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+                                            : (
+                                                ((step === "profile" && i < 2) || (step === "preferences" && i < 3) || (step === "intent" && i < 4))
+                                                    ? "text-blue-400 border-blue-400/30"
+                                                    : "text-white/10 border-white/5"
+                                            )
+                                    )}
+                                >
+                                    {((step === "profile" && i < 2) || (step === "preferences" && i < 3) || (step === "intent" && i < 4))
+                                        ? <Check className="w-4 h-4" />
+                                        : <span className="text-[11px] font-bold">{i}</span>}
+                                </motion.div>
+                                <span className={cn(
+                                    "text-[9px] font-bold uppercase tracking-widest transition-all duration-500",
+                                    ((step === "credentials" && i === 1) || (step === "profile" && i === 2) || (step === "preferences" && i === 3) || (step === "intent" && i === 4))
+                                        ? "text-white"
+                                        : "text-white/20"
+                                )}>
+                                    {i === 1 ? "Auth" : i === 2 ? "Info" : i === 3 ? "Setup" : "Done"}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="h-[1px] w-full bg-white/5 rounded-full overflow-hidden">
+                        <motion.div
+                            initial={false}
+                            animate={{
+                                width: step === "credentials" ? "25%" :
+                                    step === "profile" ? "50%" :
+                                        step === "preferences" ? "75%" : "100%"
+                            }}
+                            className="h-full bg-blue-400/80 shadow-[0_0_10px_rgba(96,165,250,0.4)]"
                         />
-                    ))}
+                    </div>
                 </div>
             </div>
 
-            {/* Right Panel - Form Wizard */}
-            <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-6 sm:p-12 relative">
+            {/* Right Panel - Content */}
+            <div className="w-full lg:flex-1 flex flex-col items-center justify-center p-8 lg:p-16 relative z-10 overflow-y-auto bg-white">
                 <div className="w-full max-w-sm">
-                    {/* Mobile Back / Step Header */}
-                    <div className="flex items-center justify-between mb-8">
-                        {step !== "credentials" ? (
-                            <Button variant="ghost" size="sm" onClick={handleBack} className="-ml-3">
-                                <ArrowLeft className="w-4 h-4 mr-2" /> Back
-                            </Button>
-                        ) : (
-                            <div />
-                        )}
-                        <span className="text-sm text-muted-foreground lg:hidden">
-                            Step {step === "credentials" ? 1 : step === "profile" ? 2 : 3} of 3
-                        </span>
+                    {/* Mobile Progress (Minimal) */}
+                    <div className="lg:hidden w-full mb-12">
+                        <div className="flex justify-between items-center mb-4 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                            <span>Step {step === "credentials" ? 1 : step === "profile" ? 2 : step === "preferences" ? 3 : 4} / 4</span>
+                        </div>
+                        <div className="h-[1px] w-full bg-slate-100 overflow-hidden">
+                            <motion.div
+                                animate={{ width: step === "credentials" ? "25%" : step === "profile" ? "50%" : step === "preferences" ? "75%" : "100%" }}
+                                className="h-full bg-primary"
+                            />
+                        </div>
                     </div>
 
                     <AnimatePresence mode="wait">
@@ -204,9 +316,9 @@ export function Register() {
                                 transition={{ duration: 0.2 }}
                                 className="space-y-6"
                             >
-                                <div className="space-y-2">
-                                    <h2 className="text-3xl font-bold tracking-tight">Create an account</h2>
-                                    <p className="text-muted-foreground">Enter your email and create a password.</p>
+                                <div className="space-y-1">
+                                    <h2 className="text-2xl font-bold tracking-tight">Create an account</h2>
+                                    <p className="text-sm text-muted-foreground">Enter your email and create a password.</p>
                                 </div>
 
                                 <div className="space-y-4">
@@ -221,7 +333,7 @@ export function Register() {
                                                 placeholder="you@example.com"
                                                 {...register("email")}
                                                 className={cn(
-                                                    "pl-10 h-12",
+                                                    "pl-10 h-11 text-sm",
                                                     errors.email && "border-red-500 bg-red-50/10"
                                                 )}
                                                 autoFocus
@@ -240,7 +352,7 @@ export function Register() {
                                                 placeholder="Min. 8 characters"
                                                 {...register("password")}
                                                 className={cn(
-                                                    "pl-10 pr-10 h-12",
+                                                    "pl-10 pr-10 h-11 text-sm",
                                                     errors.password && "border-red-500 bg-red-50/10"
                                                 )}
                                             />
@@ -275,7 +387,7 @@ export function Register() {
                                 </div>
 
                                 <Button
-                                    className="w-full h-12"
+                                    className="w-full h-11"
                                     onClick={handleNext}
                                     disabled={!email || (password?.length || 0) < 8}
                                 >
@@ -299,9 +411,9 @@ export function Register() {
                                 transition={{ duration: 0.2 }}
                                 className="space-y-6"
                             >
-                                <div className="space-y-2">
-                                    <h2 className="text-3xl font-bold tracking-tight">About you</h2>
-                                    <p className="text-muted-foreground">This helps us personalize your agreements.</p>
+                                <div className="space-y-1">
+                                    <h2 className="text-2xl font-bold tracking-tight">About you</h2>
+                                    <p className="text-sm text-muted-foreground">Tell us a bit more about yourself.</p>
                                 </div>
 
                                 <div className="space-y-4">
@@ -315,7 +427,7 @@ export function Register() {
                                                 placeholder="e.g. Alex Rivera"
                                                 {...register("full_name")}
                                                 className={cn(
-                                                    "pl-10 h-12",
+                                                    "pl-10 h-11 text-sm",
                                                     errors.full_name && "border-red-500 bg-red-50/10"
                                                 )}
                                                 autoFocus
@@ -323,36 +435,158 @@ export function Register() {
                                         </div>
                                         {errors.full_name && <p className="text-sm text-red-500 font-medium ml-1">{errors.full_name.message}</p>}
                                     </div>
+
                                     <div className="space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <Label htmlFor="phone">Phone Number <span className="text-muted-foreground font-normal">(Optional)</span></Label>
+                                        <Label htmlFor="occupation">Occupation / Industry</Label>
+                                        <div className="relative">
+                                            <Briefcase className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+                                            <Input
+                                                id="occupation"
+                                                placeholder="e.g. Software Engineer"
+                                                {...register("occupation")}
+                                                className="pl-10 h-11 text-sm"
+                                            />
                                         </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="phone">Phone Number</Label>
                                         <div className="relative">
                                             <Smartphone className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
                                             <Input
                                                 id="phone"
                                                 type="tel"
-                                                autoComplete="tel"
                                                 placeholder="(555) 000-0000"
                                                 {...register("phone")}
-                                                className="pl-10 h-12"
+                                                className="pl-10 h-11 text-sm"
                                             />
                                         </div>
-                                        <p className="text-xs text-muted-foreground">We'll only use this for important reminders you enable.</p>
                                     </div>
                                 </div>
 
-                                <Button
-                                    className="w-full h-12"
-                                    onClick={handleNext}
-                                    disabled={!full_name}
-                                >
-                                    Next Step <ArrowRight className="ml-2 w-4 h-4" />
-                                </Button>
+                                <div className="flex gap-3">
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1 h-12 border-slate-200"
+                                        onClick={handleBack}
+                                        type="button"
+                                    >
+                                        <ArrowLeft className="mr-2 w-4 h-4" /> Back
+                                    </Button>
+                                    <Button
+                                        className="flex-[2] h-12"
+                                        onClick={handleNext}
+                                        disabled={!full_name}
+                                    >
+                                        Next Step <ArrowRight className="ml-2 w-4 h-4" />
+                                    </Button>
+                                </div>
                             </motion.div>
                         )}
 
-                        {/* STEP 3: INTENT */}
+                        {/* STEP 3: PREFERENCES */}
+                        {step === "preferences" && (
+                            <motion.div
+                                key="preferences"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.2 }}
+                                className="space-y-6"
+                            >
+                                <div className="space-y-1">
+                                    <h2 className="text-2xl font-bold tracking-tight">Preferences</h2>
+                                    <p className="text-sm text-muted-foreground">Optimize your experience.</p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label>Primary Currency</Label>
+                                        <div className="grid grid-cols-3 gap-3">
+                                            {CURRENCIES.map((curr) => (
+                                                <button
+                                                    key={curr.code}
+                                                    type="button"
+                                                    onClick={() => setValue("currency", curr.code)}
+                                                    className={cn(
+                                                        "flex flex-col items-center justify-center p-4 rounded-xl border transition-all duration-300",
+                                                        currency === curr.code
+                                                            ? "bg-slate-900 border-slate-900 text-white shadow-lg shadow-slate-200"
+                                                            : "bg-white border-slate-100 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                                                    )}
+                                                >
+                                                    <span className="text-xl font-bold">{curr.symbol}</span>
+                                                    <span className={cn(
+                                                        "text-[9px] uppercase font-black tracking-widest mt-1",
+                                                        currency === curr.code ? "text-white/60" : "text-slate-400"
+                                                    )}>{curr.code}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label>Preferred Communication</Label>
+                                        <div className="flex gap-3">
+                                            {CHANNELS.map((channel) => (
+                                                <button
+                                                    key={channel.id}
+                                                    type="button"
+                                                    onClick={() => setValue("preferred_channel", channel.id as any)}
+                                                    className={cn(
+                                                        "flex-1 flex items-center justify-center gap-3 p-4 rounded-xl border transition-all duration-300",
+                                                        preferred_channel === channel.id
+                                                            ? "bg-slate-900 border-slate-900 text-white shadow-lg shadow-slate-200"
+                                                            : "bg-white border-slate-100 text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                                                    )}
+                                                >
+                                                    <channel.icon className={cn("w-4 h-4", preferred_channel === channel.id ? "text-white" : "text-slate-400")} />
+                                                    <span className="text-[11px] font-bold uppercase tracking-wider">{channel.label}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="timezone">Local Timezone</Label>
+                                        <div className="relative">
+                                            <Clock className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+                                            <select
+                                                id="timezone"
+                                                {...register("timezone")}
+                                                className="w-full pl-10 h-11 rounded-xl border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                            >
+                                                <option value={Intl.DateTimeFormat().resolvedOptions().timeZone}>Local ({Intl.DateTimeFormat().resolvedOptions().timeZone})</option>
+                                                <option value="UTC">UTC</option>
+                                                <option value="Africa/Lagos">Africa/Lagos (West Africa Time)</option>
+                                                <option value="Africa/Accra">Africa/Accra (Greenwich Mean Time)</option>
+                                                <option value="US/Eastern">US Eastern Time</option>
+                                                <option value="Europe/London">Europe/London</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-3">
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1 h-12 border-slate-200"
+                                        onClick={handleBack}
+                                        type="button"
+                                    >
+                                        <ArrowLeft className="mr-2 w-4 h-4" /> Back
+                                    </Button>
+                                    <Button
+                                        className="flex-[2] h-12"
+                                        onClick={handleNext}
+                                    >
+                                        Next Step <ArrowRight className="ml-2 w-4 h-4" />
+                                    </Button>
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {/* STEP 4: INTENT & ATTRIBUTION */}
                         {step === "intent" && (
                             <motion.div
                                 key="intent"
@@ -362,85 +596,108 @@ export function Register() {
                                 transition={{ duration: 0.2 }}
                                 className="space-y-6"
                             >
-                                <div className="space-y-2">
-                                    <h2 className="text-3xl font-bold tracking-tight">What brings you here?</h2>
-                                    <p className="text-muted-foreground">We'll set up your dashboard based on your goal.</p>
+                                <div className="space-y-1">
+                                    <h2 className="text-2xl font-bold tracking-tight">Final Details</h2>
+                                    <p className="text-sm text-muted-foreground">What brings you to Progress?</p>
                                 </div>
 
-                                <div className="grid gap-4">
+                                <div className="grid gap-3">
                                     <button
+                                        type="button"
                                         onClick={() => setValue("intent", "lend")}
                                         className={cn(
-                                            "flex items-start gap-4 p-4 rounded-xl border-2 text-left transition-all hover:bg-muted/50",
-                                            intent === "lend" ? "border-primary bg-primary/5" : "border-border"
+                                            "flex items-center gap-5 p-4 rounded-2xl border transition-all duration-300 group",
+                                            intent === "lend"
+                                                ? "bg-slate-900 border-slate-900 text-white shadow-xl shadow-slate-200"
+                                                : "bg-white border-slate-100 hover:border-slate-300 hover:bg-slate-50"
                                         )}
                                     >
-                                        <div className="bg-primary/10 p-2.5 rounded-lg flex-shrink-0">
-                                            <Handshake className="w-6 h-6 text-primary" />
+                                        <div className={cn(
+                                            "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300",
+                                            intent === "lend" ? "bg-white/10 text-white" : "bg-slate-50 text-slate-400 group-hover:bg-slate-100 group-hover:text-slate-600"
+                                        )}>
+                                            <Handshake className="w-5 h-5" />
                                         </div>
-                                        <div>
-                                            <div className="font-semibold text-lg flex items-center justify-between w-full">
-                                                I want to lend money
-                                                {intent === 'lend' && <Check className="w-5 h-5 text-primary" />}
-                                            </div>
-                                            <p className="text-muted-foreground text-sm mt-1">Track a loan I'm giving to a friend or family member.</p>
+                                        <div className="flex-1 text-left">
+                                            <div className={cn("font-bold text-sm tracking-tight", intent === "lend" ? "text-white" : "text-slate-900")}>Track Lending</div>
+                                            <p className={cn("text-[11px] font-medium mt-0.5", intent === "lend" ? "text-white/60" : "text-slate-400")}>Focus on money given to others.</p>
                                         </div>
+                                        {intent === 'lend' && <Check className="w-4 h-4 text-blue-400" />}
                                     </button>
 
                                     <button
+                                        type="button"
                                         onClick={() => setValue("intent", "borrow")}
                                         className={cn(
-                                            "flex items-start gap-4 p-4 rounded-xl border-2 text-left transition-all hover:bg-muted/50",
-                                            intent === "borrow" ? "border-primary bg-primary/5" : "border-border"
+                                            "flex items-center gap-5 p-4 rounded-2xl border transition-all duration-300 group",
+                                            intent === "borrow"
+                                                ? "bg-slate-900 border-slate-900 text-white shadow-xl shadow-slate-200"
+                                                : "bg-white border-slate-100 hover:border-slate-300 hover:bg-slate-50"
                                         )}
                                     >
-                                        <div className="bg-blue-500/10 p-2.5 rounded-lg flex-shrink-0">
-                                            <Briefcase className="w-6 h-6 text-blue-600" />
+                                        <div className={cn(
+                                            "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300",
+                                            intent === "borrow" ? "bg-white/10 text-white" : "bg-slate-50 text-slate-400 group-hover:bg-slate-100 group-hover:text-slate-600"
+                                        )}>
+                                            <Briefcase className="w-5 h-5" />
                                         </div>
-                                        <div>
-                                            <div className="font-semibold text-lg flex items-center justify-between w-full">
-                                                I want to borrow money
-                                                {intent === 'borrow' && <Check className="w-5 h-5 text-primary" />}
-                                            </div>
-                                            <p className="text-muted-foreground text-sm mt-1">Create a formal record for money I'm receiving.</p>
+                                        <div className="flex-1 text-left">
+                                            <div className={cn("font-bold text-sm tracking-tight", intent === "borrow" ? "text-white" : "text-slate-900")}>Track Borrowing</div>
+                                            <p className={cn("text-[11px] font-medium mt-0.5", intent === "borrow" ? "text-white/60" : "text-slate-400")}>Keep records for money received.</p>
                                         </div>
-                                    </button>
-
-                                    <button
-                                        onClick={() => setValue("intent", "explore")}
-                                        className={cn(
-                                            "flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all hover:bg-muted/50",
-                                            intent === "explore" ? "border-primary bg-primary/5" : "border-border"
-                                        )}
-                                    >
-                                        <div className="bg-muted p-2.5 rounded-lg flex-shrink-0">
-                                            <Shield className="w-6 h-6 text-muted-foreground" />
-                                        </div>
-                                        <div className="font-medium">
-                                            Just looking around for now
-                                        </div>
-                                        {intent === 'explore' && <Check className="ml-auto w-5 h-5 text-primary" />}
+                                        {intent === 'borrow' && <Check className="w-4 h-4 text-blue-400" />}
                                     </button>
                                 </div>
 
-                                <Button
-                                    className="w-full h-12"
-                                    onClick={handleNext}
-                                    disabled={!intent || isLoading}
-                                >
-                                    {isLoading ? "creating account..." : "Finish Setup"}
-                                </Button>
+                                <div className="space-y-2 mt-4">
+                                    <Label className="flex items-center gap-2">
+                                        <Search className="w-4 h-4 text-muted-foreground" />
+                                        How did you hear about us?
+                                    </Label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {ATTRIBUTIONS.map((source) => (
+                                            <button
+                                                key={source}
+                                                type="button"
+                                                onClick={() => setValue("attribution", source)}
+                                                className={cn(
+                                                    "px-3 py-1.5 rounded-full text-xs font-bold border-2 transition-all",
+                                                    attribution === source ? "bg-primary border-primary text-white" : "border-border hover:bg-muted"
+                                                )}
+                                            >
+                                                {source}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-3">
+                                    <Button
+                                        variant="outline"
+                                        className="flex-1 h-12 border-slate-200"
+                                        onClick={handleBack}
+                                        type="button"
+                                        disabled={isLoading}
+                                    >
+                                        <ArrowLeft className="mr-2 w-4 h-4" /> Back
+                                    </Button>
+                                    <Button
+                                        className="flex-[2] h-12"
+                                        onClick={handleNext}
+                                        disabled={!intent || isLoading}
+                                    >
+                                        {isLoading ? "creating account..." : "Finish Setup"}
+                                    </Button>
+                                </div>
                             </motion.div>
                         )}
                     </AnimatePresence>
 
                     {step === "credentials" && (
-                        <p className="text-xs text-center text-muted-foreground mt-8">
-                            By creating an account, you agree to our{" "}
-                            <Link to="/terms" className="underline hover:text-foreground">Terms</Link>{" "}
-                            and{" "}
-                            <Link to="/privacy" className="underline hover:text-foreground">Privacy Policy</Link>.
-                        </p>
+                        <div className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-10 max-w-[80%] mx-auto leading-relaxed">
+                            Secured by <span className="text-slate-900">Supabase Auth</span> <br />
+                            By continuing, you agree to our <Link to="/terms" className="underline hover:text-primary">Terms</Link> and <Link to="/privacy" className="underline hover:text-primary">Privacy</Link>
+                        </div>
                     )}
                 </div>
             </div>

@@ -11,6 +11,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { exportToCSV } from "../../lib/csvExport";
 import { useAuth } from "../../lib/contexts/AuthContext";
+import { SEO } from "../components/SEO";
 
 export function Groups() {
   const { user } = useAuth();
@@ -124,6 +125,7 @@ export function Groups() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-32">
+      <SEO title="Groups" description="Collaborative lending and shared financial records." />
       {/* Premium Header - Matching Dashboard/CreateLoan */}
       <header className="relative overflow-hidden pt-8 pb-12 px-4">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-blue-600 to-violet-700">

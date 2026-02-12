@@ -40,7 +40,7 @@ export function MoreUtilities() {
                     path: "/security-settings",
                     color: "bg-emerald-50 text-emerald-600"
                 },
-                { icon: Zap, label: "Boost Score", desc: "Improve your credit rating", color: "bg-indigo-50 text-indigo-600", path: "/dashboard" },
+                { icon: Zap, label: "Boost Score", desc: "Improve your credit rating", color: "bg-indigo-50 text-indigo-600", path: "/credit-health" },
             ]
         },
         {
