@@ -38,6 +38,8 @@ import { HelpModal } from "./components/HelpModal";
 import { BottomNav } from "./components/BottomNav";
 import { AuthProvider, useAuth } from "../lib/contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { ThemeProvider } from "next-themes";
+
 
 function AppRoutes() {
   const { session } = useAuth();
@@ -108,12 +110,14 @@ function GlobalUI() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <KeyboardShortcutsProvider>
-          <AppRoutes />
-          <GlobalUI />
-        </KeyboardShortcutsProvider>
-      </AuthProvider>
+      <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+        <AuthProvider>
+          <KeyboardShortcutsProvider>
+            <AppRoutes />
+            <GlobalUI />
+          </KeyboardShortcutsProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

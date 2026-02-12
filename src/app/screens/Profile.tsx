@@ -12,6 +12,8 @@ import { ThemeToggle } from "../components/ui/theme-toggle";
 import { PurchaseCreditsModal } from "../components/PurchaseCreditsModal";
 import { analytics, identifyUser } from "../../lib/analytics";
 import { useAuth } from "../../lib/contexts/AuthContext";
+import { VerificationPrompt } from "../components/VerificationPrompt";
+import { checkVerificationStatus, syncEmailVerification, type VerificationStatus } from "../../lib/verification";
 
 export function Profile() {
   const { user, signOut: logOut } = useAuth();
@@ -20,6 +22,12 @@ export function Profile() {
   const [isLoading, setIsLoading] = useState(true);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState<VerificationStatus>({
+    isVerified: false,
+    emailVerified: false,
+    phoneVerified: false,
+    emailVerifiedAt: null,
+  });
 
   useEffect(() => {
     if (!user) {
@@ -34,13 +42,21 @@ export function Profile() {
         phone: user!.phone,
       });
 
+      // Sync email verification status from auth.users
+      await syncEmailVerification(user!.id);
+
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user!.id)
         .single();
 
-      if (!error) setProfile(data);
+      if (!error) {
+        setProfile(data);
+        // Check verification status
+        const status = checkVerificationStatus(data);
+        setVerificationStatus(status);
+      }
       setIsLoading(false);
     }
     fetchData();
@@ -212,9 +228,11 @@ export function Profile() {
                   {user?.email || user?.phone}
                 </p>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  <div className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase tracking-wider border border-emerald-100">
-                    Verified Member
-                  </div>
+                  {verificationStatus.isVerified && (
+                    <div className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-bold uppercase tracking-wider border border-emerald-100">
+                      Verified Member
+                    </div>
+                  )}
                   {profile?.onboarding_intent && (
                     <div className="inline-flex items-center px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold uppercase tracking-wider border border-indigo-100">
                       Goal: {profile.onboarding_intent === 'lend' ? 'Lending' : profile.onboarding_intent === 'borrow' ? 'Borrowing' : 'Exploring'}
@@ -235,6 +253,17 @@ export function Profile() {
               Edit Profile Detail
             </Button>
           </motion.div>
+
+          {/* Verification Prompt for Unverified Users */}
+          {!verificationStatus.isVerified && (
+            <motion.div variants={itemVariants}>
+              <VerificationPrompt
+                status={verificationStatus}
+                onResendEmail={() => toast.info("Email verification link resent! Check your inbox.")}
+                onVerifyPhone={() => toast.info("Phone verification coming soon! For now, contact support to verify your phone.")}
+              />
+            </motion.div>
+          )}
 
           {/* Section: General */}
           <motion.div variants={itemVariants} className="space-y-3">
