@@ -22,6 +22,9 @@ import { logActivity } from "../../lib/logger";
 import { secureEncrypt } from "../../lib/encryption";
 import { getPrivacyKey } from "../../lib/privacyKeyStore";
 import { useAuth } from "../../lib/contexts/AuthContext";
+import { CustomerSelector } from "../components/CustomerSelector";
+import type { Customer, PaymentTerms } from "../../lib/types/customer";
+import { getCustomerDisplayName, PAYMENT_TERMS_OPTIONS } from "../../lib/types/customer";
 
 type LoanType = "personal" | "business" | "group";
 
@@ -78,6 +81,25 @@ export function CreateLoan() {
   // Payment Plan State
   const [paymentPlan, setPaymentPlan] = useState<PlanConfig | null>(null);
   const [repaymentSchedule, setRepaymentSchedule] = useState<"one_time" | "installments">("one_time");
+
+  // Customer State (for business loans)
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [paymentTerms, setPaymentTerms] = useState<PaymentTerms>('Net 30');
+  const [taxRate, setTaxRate] = useState<number>(0);
+  const [taxAmount, setTaxAmount] = useState<number>(0);
+
+  // Auto-calculate due date from payment terms (business loans only)
+  useEffect(() => {
+    if (type === 'business' && paymentTerms) {
+      const today = new Date();
+      const termsOption = PAYMENT_TERMS_OPTIONS.find(opt => opt.value === paymentTerms);
+      if (termsOption) {
+        const dueDate = new Date(today);
+        dueDate.setDate(dueDate.getDate() + termsOption.days);
+        setValue('due_date', dueDate.toISOString().split('T')[0]);
+      }
+    }
+  }, [type, paymentTerms, setValue]);
 
   // Contacts for Autocomplete
   const [contacts, setContacts] = useState<any[]>([]);
@@ -286,6 +308,12 @@ export function CreateLoan() {
         due_date: due_date ? new Date(due_date).toISOString() : null,
         type: type,
         group_id: type === 'group' ? selectedGroupId : null, // Link to group
+        // Customer & Business Fields
+        customer_id: type === 'business' && selectedCustomer ? selectedCustomer.id : null,
+        payment_terms: type === 'business' ? paymentTerms : null,
+        tax_rate: type === 'business' ? taxRate : 0,
+        tax_amount: type === 'business' ? taxAmount : 0,
+        subtotal: type === 'business' && taxRate > 0 ? amount - taxAmount : null,
         // Payment Plan Fields
         repayment_schedule: repaymentSchedule,
         installment_frequency: repaymentSchedule === 'installments' ? paymentPlan?.frequency : null,
@@ -615,77 +643,103 @@ export function CreateLoan() {
                 </div>
 
                 <div className="bg-card border border-border rounded-3xl p-6 shadow-sm">
-                  <h2 className="text-lg font-bold mb-1">Borrower</h2>
+                  <h2 className="text-lg font-bold mb-1">
+                    {type === 'business' ? 'Customer' : 'Borrower'}
+                  </h2>
                   <p className="text-sm text-muted-foreground mb-6">
-                    Who is this loan for?
+                    {type === 'business' ? 'Select or create a customer for this business loan' : 'Who is this loan for?'}
                   </p>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="borrower_name" className="text-[11px] uppercase font-black tracking-widest text-muted-foreground/70 ml-1">Full Name or Phone</Label>
-                      <div className="relative group">
-                        <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                        <Input
-                          id="borrower_name"
-                          type="text"
-                          placeholder="e.g. Sarah Chen"
-                          {...register("borrower_name")}
-                          onFocus={() => setShowAutocomplete(true)}
-                          onBlur={() => setTimeout(() => setShowAutocomplete(false), 200)}
-                          className={cn(
-                            "pl-11 h-14 bg-muted/30 border-transparent focus:bg-background focus:ring-primary/20 focus:border-primary/20 rounded-2xl transition-all font-bold",
-                            errors.borrower_name && "border-destructive ring-destructive/20 bg-destructive/5"
-                          )}
-                        />
 
-                        <AnimatePresence>
-                          {filteredContacts.length > 0 && (
-                            <motion.div
-                              initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                              animate={{ opacity: 1, scale: 1, y: 0 }}
-                              exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                              className="absolute z-[60] left-0 right-0 top-full mt-2 bg-white border border-border rounded-2xl shadow-xl overflow-hidden max-h-48 overflow-y-auto no-scrollbar"
-                            >
-                              {filteredContacts.map(contact => (
-                                <button
-                                  key={contact.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setValue("borrower_name", contact.name);
-                                    setShowAutocomplete(false);
-                                  }}
-                                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 text-left"
-                                >
-                                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-black text-xs text-slate-400">
-                                    {contact.name.charAt(0)}
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="text-sm font-bold text-slate-900">{contact.name}</div>
-                                    {contact.tags?.length > 0 && (
-                                      <div className="text-[10px] text-slate-400 font-medium">
-                                        {contact.tags.join(", ")}
-                                      </div>
-                                    )}
-                                  </div>
-                                  <Plus className="w-3 h-3 text-slate-300" />
-                                </button>
-                              ))}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
+                  {type === 'business' ? (
+                    <CustomerSelector
+                      value={selectedCustomer}
+                      onChange={(customer) => {
+                        setSelectedCustomer(customer);
+                        if (customer) {
+                          setValue('borrower_name', getCustomerDisplayName(customer));
+                          // Auto-populate from customer defaults
+                          if (customer.payment_terms) {
+                            setPaymentTerms(customer.payment_terms);
+                          }
+                          if (customer.currency) {
+                            setValue('currency', customer.currency);
+                          }
+                        }
+                      }}
+                      onCreateNew={() => {
+                        // TODO: Open create customer modal
+                        toast.info("Customer management coming soon! For now, use personal loan type.");
+                      }}
+                    />
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="borrower_name" className="text-[11px] uppercase font-black tracking-widest text-muted-foreground/70 ml-1">Full Name or Phone</Label>
+                        <div className="relative group">
+                          <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                          <Input
+                            id="borrower_name"
+                            type="text"
+                            placeholder="e.g. Sarah Chen"
+                            {...register("borrower_name")}
+                            onFocus={() => setShowAutocomplete(true)}
+                            onBlur={() => setTimeout(() => setShowAutocomplete(false), 200)}
+                            className={cn(
+                              "pl-11 h-14 bg-muted/30 border-transparent focus:bg-background focus:ring-primary/20 focus:border-primary/20 rounded-2xl transition-all font-bold",
+                              errors.borrower_name && "border-destructive ring-destructive/20 bg-destructive/5"
+                            )}
+                          />
+
+                          <AnimatePresence>
+                            {filteredContacts.length > 0 && (
+                              <motion.div
+                                initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                className="absolute z-[60] left-0 right-0 top-full mt-2 bg-white border border-border rounded-2xl shadow-xl overflow-hidden max-h-48 overflow-y-auto no-scrollbar"
+                              >
+                                {filteredContacts.map(contact => (
+                                  <button
+                                    key={contact.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setValue("borrower_name", contact.name);
+                                      setShowAutocomplete(false);
+                                    }}
+                                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0 text-left"
+                                  >
+                                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-black text-xs text-slate-400">
+                                      {contact.name.charAt(0)}
+                                    </div>
+                                    <div className="flex-1">
+                                      <div className="text-sm font-bold text-slate-900">{contact.name}</div>
+                                      {contact.tags?.length > 0 && (
+                                        <div className="text-[10px] text-slate-400 font-medium">
+                                          {contact.tags.join(", ")}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <Plus className="w-3 h-3 text-slate-300" />
+                                  </button>
+                                ))}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                        {errors.borrower_name && (
+                          <p className="text-[10px] font-bold text-destructive ml-1 animate-pulse italic">{errors.borrower_name.message}</p>
+                        )}
                       </div>
-                      {errors.borrower_name && (
-                        <p className="text-[10px] font-bold text-destructive ml-1 animate-pulse italic">{errors.borrower_name.message}</p>
-                      )}
-                    </div>
-                    <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 flex gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center shrink-0">
-                        <BellRing className="w-5 h-5 text-indigo-600" />
+                      <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 flex gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center shrink-0">
+                          <BellRing className="w-5 h-5 text-indigo-600" />
+                        </div>
+                        <p className="text-[11px] font-medium text-indigo-900/70 leading-relaxed">
+                          We'll notify {borrower_name || "the person"} so they can verify the terms and track payments.
+                        </p>
                       </div>
-                      <p className="text-[11px] font-medium text-indigo-900/70 leading-relaxed">
-                        We'll notify {borrower_name || "the person"} so they can verify the terms and track payments.
-                      </p>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
             )}
@@ -759,6 +813,31 @@ export function CreateLoan() {
                         <p className="text-[10px] font-bold text-destructive ml-1 animate-pulse italic">{errors.due_date.message}</p>
                       )}
                     </div>
+
+                    {/* Payment Terms - Business Loans Only */}
+                    {type === "business" && (
+                      <div className="space-y-2">
+                        <Label htmlFor="payment_terms" className="text-[11px] uppercase font-black tracking-widest text-muted-foreground/70 ml-1">
+                          Payment Terms
+                        </Label>
+                        <select
+                          id="payment_terms"
+                          value={paymentTerms}
+                          onChange={(e) => setPaymentTerms(e.target.value as PaymentTerms)}
+                          className="w-full h-14 bg-muted/30 border-transparent rounded-2xl px-4 font-bold text-sm focus:bg-background focus:ring-primary/20 focus:border-primary/20 transition-all outline-none"
+                        >
+                          {PAYMENT_TERMS_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] font-medium text-muted-foreground ml-1 flex items-center gap-1.5">
+                          <span className="w-1 h-1 rounded-full bg-indigo-500"></span>
+                          Due date will be automatically calculated from payment terms
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 

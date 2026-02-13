@@ -31,6 +31,8 @@ import SecuritySettings from "./screens/SecuritySettings";
 import MFAVerify from "./screens/MFAVerify";
 import { CreditHealth } from "./screens/CreditHealth";
 import { AnalyticsDashboard } from "./screens/AnalyticsDashboard";
+import { Customers } from "./screens/Customers";
+import { CustomerDetail } from "./screens/CustomerDetail";
 import { Toaster } from "./components/ui/sonner";
 import { KeyboardShortcutsProvider } from "./components/KeyboardShortcutsProvider";
 import { CommandPalette } from "./components/CommandPalette";
@@ -39,6 +41,7 @@ import { BottomNav } from "./components/BottomNav";
 import { AuthProvider, useAuth } from "../lib/contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ThemeProvider } from "next-themes";
+import { Sidebar } from "./components/Sidebar";
 
 
 function AppRoutes() {
@@ -75,6 +78,8 @@ function AppRoutes() {
         <Route path="/loan/:loanId/add-payment" element={<AddPayment />} />
         <Route path="/groups" element={<Groups />} />
         <Route path="/groups/:groupId" element={<GroupDetail />} />
+        <Route path="/customers" element={<Customers />} />
+        <Route path="/customers/:customerId" element={<CustomerDetail />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/profile/edit" element={<EditProfile />} />
         <Route path="/more" element={<MoreUtilities />} />
@@ -107,13 +112,31 @@ function GlobalUI() {
   );
 }
 
+function AppLayout() {
+  const { session } = useAuth();
+  const isAuthenticated = !!session;
+
+  if (!isAuthenticated) {
+    return <AppRoutes />;
+  }
+
+  return (
+    <div className="flex h-screen overflow-hidden">
+      <Sidebar />
+      <main className="flex-1 overflow-y-auto">
+        <AppRoutes />
+      </main>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
         <AuthProvider>
           <KeyboardShortcutsProvider>
-            <AppRoutes />
+            <AppLayout />
             <GlobalUI />
           </KeyboardShortcutsProvider>
         </AuthProvider>

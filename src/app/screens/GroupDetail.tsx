@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Users, Plus, Calendar, DollarSign, BellRing, User } from "lucide-react";
+import { ArrowLeft, Users, Plus, Calendar, DollarSign, BellRing, User, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "../components/ui/button";
 import { EmptyState } from "../components/EmptyState";
@@ -19,9 +19,12 @@ export function GroupDetail() {
     const [loans, setLoans] = useState<any[]>([]);
     const [members, setMembers] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
     const [newMemberEmail, setNewMemberEmail] = useState("");
     const [isAddingMember, setIsAddingMember] = useState(false);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const userId = user?.id;
 
     useEffect(() => {
@@ -31,18 +34,41 @@ export function GroupDetail() {
     async function fetchGroupDetails() {
         try {
             if (!user) return;
-            if (!groupId) return;
+            if (!groupId) {
+                setError("No group ID provided");
+                setIsLoading(false);
+                return;
+            }
 
             // Fetch Group Info & Members
             const { data: groupData, error: groupError } = await supabase
                 .from('groups')
-                .select('*, group_members(*, profiles(*))') // Join profiles to get names/avatars
+                .select('*')
                 .eq('id', groupId)
                 .single();
 
-            if (groupError) throw groupError;
+            if (groupError) {
+                if (groupError.code === 'PGRST116') {
+                    setError("Group not found. It may have been deleted or you don't have access.");
+                } else {
+                    setError(groupError.message || "Failed to load group details");
+                }
+                setIsLoading(false);
+                return;
+            }
+
+            // Fetch group members
+            const { data: membersData, error: membersError } = await supabase
+                .from('group_members')
+                .select('*')
+                .eq('group_id', groupId);
+
+            if (membersError) {
+                console.error("Error loading members:", membersError);
+            }
+
             setGroup(groupData);
-            setMembers(groupData.group_members || []);
+            setMembers(membersData || []);
 
             // Fetch Loans linked to this group
             const { data: loansData, error: loansError } = await supabase
@@ -51,13 +77,16 @@ export function GroupDetail() {
                 .eq('group_id', groupId)
                 .order('created_at', { ascending: false });
 
-            if (loansError) throw loansError;
-            setLoans(loansData || []);
+            if (loansError) {
+                console.error("Error loading loans:", loansError);
+                // Don't fail completely if loans don't load
+            } else {
+                setLoans(loansData || []);
+            }
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error fetching group details:", error);
-            toast.error("Failed to load group details");
-            navigate("/groups");
+            setError(error.message || "An unexpected error occurred");
         } finally {
             setIsLoading(false);
         }
@@ -109,10 +138,89 @@ export function GroupDetail() {
         }
     };
 
+    const handleDeleteGroup = async () => {
+        setIsDeleting(true);
+        try {
+            // Check if user is admin or creator
+            const isAdmin = members.some(m => m.user_id === userId && m.role === 'admin');
+            const isCreator = group?.created_by === userId;
+
+            console.log('Delete attempt:', { userId, isAdmin, isCreator, groupId, groupCreator: group?.created_by });
+
+            if (!isAdmin && !isCreator) {
+                toast.error("Only admins can delete groups");
+                return;
+            }
+
+            console.log('Attempting to soft delete group:', groupId);
+
+            // Soft delete the group
+            const { data, error } = await supabase
+                .from('groups')
+                .update({ deleted_at: new Date().toISOString() })
+                .eq('id', groupId)
+                .select();
+
+            console.log('Delete result:', { data, error });
+
+            if (error) {
+                console.error('Delete error:', error);
+                throw error;
+            }
+
+            toast.success("Group deleted successfully");
+
+            // Give a small delay before navigating to ensure the update is processed
+            setTimeout(() => {
+                navigate("/groups");
+            }, 500);
+
+        } catch (error: any) {
+            console.error("Error deleting group:", error);
+            toast.error(error.message || "Failed to delete group");
+        } finally {
+            setIsDeleting(false);
+            setIsDeleteConfirmOpen(false);
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
+                <div className="max-w-md w-full bg-white rounded-3xl p-8 shadow-xl text-center">
+                    <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Users className="w-8 h-8 text-rose-600" />
+                    </div>
+                    <h2 className="text-xl font-black text-slate-900 mb-2">Group Not Found</h2>
+                    <p className="text-sm text-slate-600 mb-6">{error}</p>
+                    <div className="flex gap-3">
+                        <Button
+                            variant="outline"
+                            onClick={() => navigate("/groups")}
+                            className="flex-1 rounded-xl"
+                        >
+                            Back to Groups
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                setError(null);
+                                setIsLoading(true);
+                                fetchGroupDetails();
+                            }}
+                            className="flex-1 rounded-xl bg-indigo-600 hover:bg-indigo-700"
+                        >
+                            Try Again
+                        </Button>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -145,12 +253,23 @@ export function GroupDetail() {
                         >
                             <ArrowLeft className="w-5 h-5" />
                         </Button>
-                        <div>
+                        <div className="flex-1">
                             <h1 className="text-2xl font-black tracking-tight">{group.name}</h1>
                             <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mt-1">
                                 {members.length} Members • {loans.length} Active Records
                             </p>
                         </div>
+                        {/* Delete button - visible only to admins/creators */}
+                        {(members.some(m => m.user_id === userId && m.role === 'admin') || group?.created_by === userId) && (
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-white hover:bg-rose-500/20 rounded-full h-10 w-10 border border-white/20 backdrop-blur-sm shrink-0"
+                                onClick={() => setIsDeleteConfirmOpen(true)}
+                            >
+                                <Trash2 className="w-5 h-5" />
+                            </Button>
+                        )}
                     </div>
                 </div>
             </header>
@@ -311,6 +430,57 @@ export function GroupDetail() {
                     )}
                 </div>
             </main>
+
+            {/* Delete Confirmation Modal */}
+            <AnimatePresence>
+                {isDeleteConfirmOpen && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="w-full max-w-sm bg-white rounded-[2.5rem] p-8 shadow-2xl"
+                        >
+                            <div className="w-16 h-16 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-600 mb-6">
+                                <Trash2 className="w-8 h-8" />
+                            </div>
+                            <h2 className="text-2xl font-black text-slate-900 mb-2">Delete Group?</h2>
+                            <p className="text-slate-500 text-sm font-medium mb-2">
+                                Are you sure you want to delete <strong>{group.name}</strong>?
+                            </p>
+                            {loans.length > 0 && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6">
+                                    <p className="text-amber-800 text-xs font-bold">
+                                        ⚠️ This group has {loans.length} active loan{loans.length > 1 ? 's' : ''}.
+                                        They will remain accessible but won't be linked to this group.
+                                    </p>
+                                </div>
+                            )}
+                            <p className="text-slate-400 text-xs font-medium mb-8">
+                                This action cannot be undone. The group will be permanently removed.
+                            </p>
+
+                            <div className="flex gap-3">
+                                <Button
+                                    variant="outline"
+                                    className="flex-1 h-14 rounded-2xl font-bold"
+                                    onClick={() => setIsDeleteConfirmOpen(false)}
+                                    disabled={isDeleting}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    className="flex-[2] h-14 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold"
+                                    onClick={handleDeleteGroup}
+                                    disabled={isDeleting}
+                                >
+                                    {isDeleting ? "Deleting..." : "Delete Group"}
+                                </Button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

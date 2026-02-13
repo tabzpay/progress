@@ -20,6 +20,10 @@ export function Groups() {
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupDescription, setNewGroupDescription] = useState("");
+  const [newGroupCurrency, setNewGroupCurrency] = useState("USD");
+  const [newGroupType, setNewGroupType] = useState("personal");
+  const [newGroupPrivacy, setNewGroupPrivacy] = useState("private");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const userId = user?.id;
 
@@ -37,6 +41,7 @@ export function Groups() {
       const { data, error } = await supabase
         .from('groups')
         .select('*, group_members(*)')
+        .is('deleted_at', null) // Only show active groups
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -60,6 +65,10 @@ export function Groups() {
         .from('groups')
         .insert([{
           name: newGroupName,
+          description: newGroupDescription || null,
+          default_currency: newGroupCurrency,
+          group_type: newGroupType,
+          privacy_level: newGroupPrivacy,
           created_by: user.id
         }])
         .select()
@@ -81,6 +90,10 @@ export function Groups() {
       toast.success("Group created successfully!");
       setIsCreateModalOpen(false);
       setNewGroupName("");
+      setNewGroupDescription("");
+      setNewGroupCurrency("USD");
+      setNewGroupType("personal");
+      setNewGroupPrivacy("private");
       fetchGroups();
     } catch (error: any) {
       console.error("Error creating group:", error);
@@ -287,7 +300,7 @@ export function Groups() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="w-full max-w-sm bg-white rounded-[2.5rem] p-8 shadow-2xl"
+              className="w-full max-w-md bg-white rounded-[2.5rem] p-8 shadow-2xl max-h-[90vh] overflow-y-auto"
             >
               <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 mb-6">
                 <Users className="w-8 h-8" />
@@ -298,14 +311,75 @@ export function Groups() {
               </p>
 
               <div className="space-y-4 mb-8">
+                {/* Group Name */}
                 <div className="space-y-2">
-                  <Label className="text-[11px] uppercase font-black tracking-widest text-slate-400 ml-1">Group Title</Label>
+                  <Label className="text-[11px] uppercase font-black tracking-widest text-slate-400 ml-1">Group Title*</Label>
                   <Input
                     value={newGroupName}
                     onChange={(e) => setNewGroupName(e.target.value)}
                     placeholder="e.g. Housemates, Trip to Bali"
                     className="h-14 bg-slate-50 border-transparent rounded-2xl font-bold"
                   />
+                </div>
+
+                {/* Description */}
+                <div className="space-y-2">
+                  <Label className="text-[11px] uppercase font-black tracking-widest text-slate-400 ml-1">Description (Optional)</Label>
+                  <Input
+                    value={newGroupDescription}
+                    onChange={(e) => setNewGroupDescription(e.target.value)}
+                    placeholder="What's this group for?"
+                    className="h-14 bg-slate-50 border-transparent rounded-2xl font-medium"
+                  />
+                </div>
+
+                {/* Currency */}
+                <div className="space-y-2">
+                  <Label className="text-[11px] uppercase font-black tracking-widest text-slate-400 ml-1">Default Currency</Label>
+                  <select
+                    value={newGroupCurrency}
+                    onChange={(e) => setNewGroupCurrency(e.target.value)}
+                    className="w-full h-14 bg-slate-50 border-transparent rounded-2xl font-bold px-4 outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="USD">🇺🇸 USD - US Dollar</option>
+                    <option value="EUR">🇪🇺 EUR - Euro</option>
+                    <option value="GBP">🇬🇧 GBP - British Pound</option>
+                    <option value="NGN">🇳🇬 NGN - Nigerian Naira</option>
+                    <option value="GHS">🇬🇭 GHS - Ghanaian Cedi</option>
+                    <option value="KES">🇰🇪 KES - Kenyan Shilling</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Group Type */}
+                  <div className="space-y-2">
+                    <Label className="text-[11px] uppercase font-black tracking-widest text-slate-400 ml-1">Type</Label>
+                    <select
+                      value={newGroupType}
+                      onChange={(e) => setNewGroupType(e.target.value)}
+                      className="w-full h-14 bg-slate-50 border-transparent rounded-2xl font-bold px-4 outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="personal">Personal</option>
+                      <option value="business">Business</option>
+                      <option value="investment">Investment</option>
+                      <option value="community">Community</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  {/* Privacy Level */}
+                  <div className="space-y-2">
+                    <Label className="text-[11px] uppercase font-black tracking-widest text-slate-400 ml-1">Privacy</Label>
+                    <select
+                      value={newGroupPrivacy}
+                      onChange={(e) => setNewGroupPrivacy(e.target.value)}
+                      className="w-full h-14 bg-slate-50 border-transparent rounded-2xl font-bold px-4 outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="private">Private</option>
+                      <option value="invite_only">Invite Only</option>
+                      <option value="public">Public</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 

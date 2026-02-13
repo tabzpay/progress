@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, PlusCircle, Users, User, BarChart3 } from "lucide-react";
+import { LayoutDashboard, PlusCircle, Users, User, BarChart3, Building2 } from "lucide-react";
 import { cn } from "./ui/utils";
 
 export function BottomNav() {
@@ -13,9 +13,9 @@ export function BottomNav() {
             path: "/dashboard",
         },
         {
-            label: "Groups",
-            icon: Users,
-            path: "/groups",
+            label: "Customers",
+            icon: Building2,
+            path: "/customers",
         },
         {
             label: "Add",
