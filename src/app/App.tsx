@@ -42,6 +42,7 @@ import { AuthProvider, useAuth } from "../lib/contexts/AuthContext";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ThemeProvider } from "next-themes";
 import { Sidebar } from "./components/Sidebar";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 
 function AppRoutes() {
@@ -136,8 +137,10 @@ export default function App() {
       <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
         <AuthProvider>
           <KeyboardShortcutsProvider>
-            <AppLayout />
-            <GlobalUI />
+            <ErrorBoundary>
+              <AppLayout />
+              <GlobalUI />
+            </ErrorBoundary>
           </KeyboardShortcutsProvider>
         </AuthProvider>
       </ThemeProvider>
