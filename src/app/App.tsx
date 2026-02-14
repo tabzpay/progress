@@ -43,6 +43,8 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ThemeProvider } from "next-themes";
 import { Sidebar } from "./components/Sidebar";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "../lib/queryClient";
 
 
 function AppRoutes() {
@@ -134,16 +136,18 @@ function AppLayout() {
 export default function App() {
   return (
     <BrowserRouter>
-      <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-        <AuthProvider>
-          <KeyboardShortcutsProvider>
-            <ErrorBoundary>
-              <AppLayout />
-              <GlobalUI />
-            </ErrorBoundary>
-          </KeyboardShortcutsProvider>
-        </AuthProvider>
-      </ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
+          <AuthProvider>
+            <KeyboardShortcutsProvider>
+              <ErrorBoundary>
+                <AppLayout />
+                <GlobalUI />
+              </ErrorBoundary>
+            </KeyboardShortcutsProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
     </BrowserRouter>
   );
 }
