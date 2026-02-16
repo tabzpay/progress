@@ -21,7 +21,7 @@ import {
     StatusDistributionChart,
     BorrowerConcentrationChart,
     CashFlowForecastChart
-} from '../components/AnalyticsCharts';
+} from '../components/features/analytics/AnalyticsCharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Card } from '../components/ui/card';
 import { useAuth } from '../../lib/contexts/AuthContext';

@@ -2,9 +2,9 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ChevronRight, BookmarkPlus, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '../components/ui/button';
-import { SuccessOverlay } from '../components/SuccessOverlay';
-import { ShareOverlay } from '../components/ShareOverlay';
-import { TemplateManager } from '../components/TemplateManager';
+import { SuccessOverlay } from '../components/shared/SuccessOverlay';
+import { ShareOverlay } from '../components/shared/ShareOverlay';
+import { TemplateManager } from '../components/features/loans/TemplateManager';
 import { useAuth } from '../../lib/contexts/AuthContext';
 import { toast } from 'sonner';
 
@@ -255,10 +255,10 @@ export function CreateLoan() {
                 <div key={stepNum} className="flex-1">
                   <div
                     className={`h-2 rounded-full transition-all duration-300 ${isCompleted
-                        ? 'bg-green-500'
-                        : isActive
-                          ? 'bg-blue-500'
-                          : 'bg-gray-200 dark:bg-gray-700'
+                      ? 'bg-green-500'
+                      : isActive
+                        ? 'bg-blue-500'
+                        : 'bg-gray-200 dark:bg-gray-700'
                       }`}
                   />
                 </div>
