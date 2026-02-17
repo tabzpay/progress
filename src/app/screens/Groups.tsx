@@ -2,7 +2,7 @@ import { ArrowLeft, Users, Plus, ChevronRight, BellRing, Download } from "lucide
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "../components/ui/button";
-import { EmptyState } from "../components/EmptyState";
+import { EmptyState } from "../components/shared/EmptyState";
 import { cn } from "../components/ui/utils";
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
@@ -11,7 +11,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { exportToCSV } from "../../lib/csvExport";
 import { useAuth } from "../../lib/contexts/AuthContext";
-import { SEO } from "../components/SEO";
+import { SEO } from "../components/layout/SEO";
 
 export function Groups() {
   const { user } = useAuth();

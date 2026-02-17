@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "motion/react";
 import { X, CreditCard, Zap, ShieldCheck, Check } from "lucide-react";
-import { Button } from "./ui/button";
-import { cn } from "./ui/utils";
+import { Button } from "../ui/button";
+import { cn } from "../ui/utils";
 import { useState } from "react";
 import { toast } from "sonner";
 

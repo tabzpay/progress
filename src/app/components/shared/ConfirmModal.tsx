@@ -8,8 +8,8 @@ import {
     AlertDialogFooter,
     AlertDialogHeader,
     AlertDialogTitle,
-} from "./ui/alert-dialog";
-import { cn } from "./ui/utils";
+} from "../ui/alert-dialog";
+import { cn } from "../ui/utils";
 import { AlertCircle, HelpCircle, Info, LogOut } from "lucide-react";
 
 type ModalVariant = "danger" | "warning" | "info" | "question";

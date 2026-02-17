@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "motion/react";
 import { X, Bell, CheckCircle2, MessageSquare, DollarSign, Clock, ArrowRight } from "lucide-react";
-import { Button } from "./ui/button";
-import { cn } from "./ui/utils";
+import { Button } from "../ui/button";
+import { cn } from "../ui/utils";
 
 export interface Notification {
     id: string;

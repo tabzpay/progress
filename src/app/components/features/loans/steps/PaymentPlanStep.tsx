@@ -2,7 +2,7 @@
  * PaymentPlanStep - Fourth step: Configure payment plan (optional)
  */
 
-import { PaymentPlanConfig } from '../../../PaymentPlanConfig';
+import { PaymentPlanConfig } from '../PaymentPlanConfig';
 import { Label } from '../../../ui/label';
 import { cn } from '../../../ui/utils';
 import type { PlanConfig } from '../../../../../lib/LoanCalculator';

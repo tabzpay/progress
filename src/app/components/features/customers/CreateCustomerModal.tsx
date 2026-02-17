@@ -1,16 +1,14 @@
 import { useState } from "react";
-import { X, Building2, User, Mail, Phone, MapPin, DollarSign } from "lucide-react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Textarea } from "./ui/textarea";
+import { X, Building2, User } from "lucide-react";
+import { Button } from "../../ui/button";
+import { Input } from "../../ui/input";
+import { Label } from "../../ui/label";
+import { Textarea } from "../../ui/textarea";
 import { motion, AnimatePresence } from "motion/react";
-import { supabase } from "../../lib/supabase";
-import { toast } from "sonner";
-import { useAuth } from "../../lib/contexts/AuthContext";
-import type { PaymentTerms } from "../../lib/types/customer";
-import { PAYMENT_TERMS_OPTIONS } from "../../lib/types/customer";
-import { cn } from "./ui/utils";
+import { useCreateCustomer } from "../../../../lib/hooks/useCustomers";
+import type { PaymentTerms, CustomerFormData } from "../../../../lib/types/customer";
+import { PAYMENT_TERMS_OPTIONS } from "../../../../lib/types/customer";
+import { cn } from "../../ui/utils";
 
 interface CreateCustomerModalProps {
     isOpen: boolean;
@@ -19,8 +17,7 @@ interface CreateCustomerModalProps {
 }
 
 export function CreateCustomerModal({ isOpen, onClose, onSuccess }: CreateCustomerModalProps) {
-    const { user } = useAuth();
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const createCustomer = useCreateCustomer();
     const [customerType, setCustomerType] = useState<'individual' | 'company'>('individual');
 
     // Form state
@@ -64,64 +61,37 @@ export function CreateCustomerModal({ isOpen, onClose, onSuccess }: CreateCustom
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!user) {
-            toast.error("You must be logged in");
-            return;
-        }
+        // Build customer data object
+        const customerData: CustomerFormData = {
+            customer_type: customerType,
+            first_name: customerType === 'individual' ? firstName : undefined,
+            last_name: customerType === 'individual' ? lastName : undefined,
+            company_name: customerType === 'company' ? companyName : undefined,
+            email: email || undefined,
+            phone: phone || undefined,
+            tax_id: taxId || undefined,
+            address: street || city || state || zip || country ? {
+                street,
+                city,
+                state,
+                zip,
+                country,
+            } : undefined,
+            credit_limit: parseFloat(creditLimit) || 0,
+            payment_terms: paymentTerms,
+            currency,
+            notes: notes || undefined,
+            is_active: true,
+        };
 
-        // Validation
-        if (customerType === 'individual' && (!firstName || !lastName)) {
-            toast.error("First and last name are required for individuals");
-            return;
-        }
-
-        if (customerType === 'company' && !companyName) {
-            toast.error("Company name is required");
-            return;
-        }
-
-        setIsSubmitting(true);
-
-        try {
-            const { data, error } = await supabase
-                .from('customers')
-                .insert([{
-                    user_id: user.id,
-                    customer_type: customerType,
-                    first_name: customerType === 'individual' ? firstName : null,
-                    last_name: customerType === 'individual' ? lastName : null,
-                    company_name: customerType === 'company' ? companyName : null,
-                    email: email || null,
-                    phone: phone || null,
-                    tax_id: taxId || null,
-                    address: street || city || state || zip || country ? {
-                        street,
-                        city,
-                        state,
-                        zip,
-                        country,
-                    } : null,
-                    credit_limit: parseFloat(creditLimit) || 0,
-                    payment_terms: paymentTerms,
-                    currency,
-                    notes: notes || null,
-                    is_active: true,
-                }])
-                .select()
-                .single();
-
-            if (error) throw error;
-
-            toast.success("Customer created successfully!");
-            resetForm();
-            onSuccess?.();
-            onClose();
-        } catch (error: any) {
-            console.error("Error creating customer:", error);
-            toast.error(error.message || "Failed to create customer");
-        } finally {
-            setIsSubmitting(false);
-        }
+        // Use the React Query mutation
+        createCustomer.mutate(customerData, {
+            onSuccess: () => {
+                resetForm();
+                onSuccess?.();
+                onClose();
+            },
+        });
     };
 
     return (
@@ -383,16 +353,16 @@ export function CreateCustomerModal({ isOpen, onClose, onSuccess }: CreateCustom
                                     variant="outline"
                                     onClick={onClose}
                                     className="flex-1 h-14 rounded-2xl font-bold"
-                                    disabled={isSubmitting}
+                                    disabled={createCustomer.isPending}
                                 >
                                     Cancel
                                 </Button>
                                 <Button
                                     type="submit"
                                     className="flex-[2] h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-700 font-bold"
-                                    disabled={isSubmitting}
+                                    disabled={createCustomer.isPending}
                                 >
-                                    {isSubmitting ? "Creating..." : "Create Customer"}
+                                    {createCustomer.isPending ? "Creating..." : "Create Customer"}
                                 </Button>
                             </div>
                         </form>

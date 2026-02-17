@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { Label } from "./ui/label";
-import { Input } from "./ui/input";
-import { Button } from "./ui/button";
+import { Label } from "../../ui/label";
+import { Input } from "../../ui/input";
+import { Button } from "../../ui/button";
 import { Calendar, DollarSign, Percent, Clock, ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { PlanConfig, calculateInstallments, Installment } from "../../lib/LoanCalculator";
-import { cn } from "./ui/utils";
+import { PlanConfig, calculateInstallments, Installment } from "../../../../lib/LoanCalculator";
+import { cn } from "../../ui/utils";
 
 interface PaymentPlanConfigProps {
     amount: number;

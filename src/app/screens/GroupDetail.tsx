@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Users, Plus, Calendar, DollarSign, BellRing, User, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "../components/ui/button";
-import { EmptyState } from "../components/EmptyState";
+import { EmptyState } from "../components/shared/EmptyState";
 import { cn } from "../components/ui/utils";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";

@@ -4,13 +4,13 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { toast } from "sonner";
-import { StatusTag } from "../components/StatusTag";
-import { BalanceBadge } from "../components/BalanceBadge";
-import { ProgressBar } from "../components/ProgressBar";
-import { ReminderBadge } from "../components/ReminderBadge";
-import { GroupMemberRow } from "../components/GroupMemberRow";
-import { LoanCard } from "../components/LoanCard";
-import { EmptyState } from "../components/EmptyState";
+import { StatusTag } from "../components/features/loans/StatusTag";
+import { BalanceBadge } from "../components/shared/BalanceBadge";
+import { ProgressBar } from "../components/shared/ProgressBar";
+import { ReminderBadge } from "../components/shared/ReminderBadge";
+import { GroupMemberRow } from "../components/features/groups/GroupMemberRow";
+import { LoanCard } from "../components/features/loans/LoanCard";
+import { EmptyState } from "../components/shared/EmptyState";
 
 export function DesignSystem() {
   const navigate = useNavigate();

@@ -1,8 +1,8 @@
 import React from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Sparkles, ArrowRight } from "lucide-react";
-import { Button } from "./ui/button";
-import { cn } from "./ui/utils";
+import { Button } from "../ui/button";
+import { cn } from "../ui/utils";
 
 interface WelcomeTooltipProps {
     isVisible: boolean;

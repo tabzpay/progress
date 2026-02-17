@@ -17,64 +17,66 @@ export function Header() {
     ];
 
     return (
-        <motion.nav
-            initial={{ y: -100 }}
-            animate={{ y: 0 }}
-            className="sticky top-0 z-50 border-b border-border/40 backdrop-blur-md bg-background/80 supports-[backdrop-filter]:bg-background/60"
-        >
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between items-center h-16">
-                    <div className="flex items-center gap-2">
-                        <Link to="/" className="flex items-center gap-2 group">
-                            <div className="bg-primary/10 p-2 rounded-lg group-hover:bg-primary/20 transition-colors">
-                                <Handshake className="w-6 h-6 text-primary" />
-                            </div>
-                            <span className="text-xl font-bold tracking-tight">Progress</span>
-                        </Link>
-                    </div>
-
-                    {/* Desktop Nav */}
-                    <div className="hidden md:flex items-center gap-8">
-                        {navLinks.map((link) => (
-                            <Link
-                                key={link.name}
-                                to={link.href}
-                                className={cn(
-                                    "text-sm font-medium transition-colors hover:text-primary",
-                                    location.pathname === link.href
-                                        ? "text-foreground"
-                                        : "text-muted-foreground"
-                                )}
-                            >
-                                {link.name}
+        <>
+            <motion.nav
+                initial={{ y: -100 }}
+                animate={{ y: 0 }}
+                className="sticky top-0 z-50 border-b border-border/40 backdrop-blur-md bg-background/80 supports-[backdrop-filter]:bg-background/60"
+            >
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex justify-between items-center h-16">
+                        <div className="flex items-center gap-2">
+                            <Link to="/" className="flex items-center gap-2 group">
+                                <div className="bg-primary/10 p-2 rounded-lg group-hover:bg-primary/20 transition-colors">
+                                    <Handshake className="w-6 h-6 text-primary" />
+                                </div>
+                                <span className="text-xl font-bold tracking-tight">Progress</span>
                             </Link>
-                        ))}
-                    </div>
+                        </div>
 
-                    <div className="hidden md:flex items-center gap-3">
-                        <Button variant="ghost" asChild className="font-medium">
-                            <Link to="/sign-in">Sign In</Link>
-                        </Button>
-                        <Button asChild className="font-medium shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all">
-                            <Link to="/get-started">Get Started</Link>
+                        {/* Desktop Nav */}
+                        <div className="hidden md:flex items-center gap-8">
+                            {navLinks.map((link) => (
+                                <Link
+                                    key={link.name}
+                                    to={link.href}
+                                    className={cn(
+                                        "text-sm font-medium transition-colors hover:text-primary",
+                                        location.pathname === link.href
+                                            ? "text-foreground"
+                                            : "text-muted-foreground"
+                                    )}
+                                >
+                                    {link.name}
+                                </Link>
+                            ))}
+                        </div>
+
+                        <div className="hidden md:flex items-center gap-3">
+                            <Button variant="ghost" asChild className="font-medium">
+                                <Link to="/sign-in">Sign In</Link>
+                            </Button>
+                            <Button asChild className="font-medium shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all">
+                                <Link to="/get-started">Get Started</Link>
+                            </Button>
+                        </div>
+
+                        {/* Mobile Menu Toggle */}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="md:hidden"
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                        >
+                            {mobileMenuOpen ? (
+                                <X className="w-6 h-6" />
+                            ) : (
+                                <Menu className="w-6 h-6" />
+                            )}
                         </Button>
                     </div>
-
-                    {/* Mobile Menu Toggle */}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="md:hidden"
-                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                    >
-                        {mobileMenuOpen ? (
-                            <X className="w-6 h-6" />
-                        ) : (
-                            <Menu className="w-6 h-6" />
-                        )}
-                    </Button>
                 </div>
-            </div>
+            </motion.nav>
 
             {/* Mobile Menu - Full Screen Overlay */}
             <AnimatePresence>
@@ -86,7 +88,7 @@ export function Header() {
                         className="fixed inset-0 z-[100] md:hidden"
                     >
                         {/* Ultra-Transparent Premium Glass - Extreme blur melts underlying content */}
-                        <div className="absolute inset-0 bg-white" />
+                        <div className="absolute inset-0 bg-white/95 backdrop-blur-3xl" />
 
                         {/* Menu Content */}
                         <div className="relative h-full flex flex-col px-8 pt-6 pb-12">
@@ -159,6 +161,6 @@ export function Header() {
                     </motion.div>
                 )}
             </AnimatePresence>
-        </motion.nav>
+        </>
     );
 }

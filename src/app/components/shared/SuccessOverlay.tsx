@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "motion/react";
 import { Check, ArrowRight, Zap, Sparkles } from "lucide-react";
-import { Button } from "./ui/button";
-import { cn } from "./ui/utils";
+import { Button } from "../ui/button";
+import { cn } from "../ui/utils";
 
 interface SuccessOverlayProps {
     isOpen: boolean;

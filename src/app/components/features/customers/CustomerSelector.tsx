@@ -2,13 +2,13 @@
 import { useState, useEffect, useMemo } from "react";
 import { Search, Plus, Building2, User, TrendingUp, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { Input } from "./ui/input";
-import { Button } from "./ui/button";
-import { cn } from "./ui/utils";
-import { searchCustomers } from "../../lib/customerService";
-import { getCustomerDisplayName, getCreditUtilization, getAvailableCredit } from "../../lib/types/customer";
-import type { Customer } from "../../lib/types/customer";
-import { useAuth } from "../../lib/contexts/AuthContext";
+import { Input } from "../../ui/input";
+import { Button } from "../../ui/button";
+import { cn } from "../../ui/utils";
+import { searchCustomers } from "../../../../lib/customerService";
+import { getCustomerDisplayName, getCreditUtilization, getAvailableCredit } from "../../../../lib/types/customer";
+import type { Customer } from "../../../../lib/types/customer";
+import { useAuth } from "../../../../lib/contexts/AuthContext";
 
 interface CustomerSelectorProps {
     value: Customer | null;

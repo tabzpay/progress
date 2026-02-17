@@ -11,8 +11,8 @@ import {
     Search,
     X,
 } from "lucide-react";
-import { Input } from "./ui/input";
-import { cn } from "./ui/utils";
+import { Input } from "../ui/input";
+import { cn } from "../ui/utils";
 
 interface Command {
     id: string;

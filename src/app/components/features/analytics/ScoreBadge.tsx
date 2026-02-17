@@ -1,7 +1,7 @@
 import { motion } from 'motion/react';
-import { getTierColor, type CreditTier } from '../../lib/CreditScore';
+import { getTierColor, type CreditTier } from '../../../../lib/CreditScore';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import type { TrendDirection } from '../../lib/CreditScore';
+import type { TrendDirection } from '../../../../lib/CreditScore';
 
 interface ScoreBadgeProps {
     score: number; // 0-100

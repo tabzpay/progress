@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, TrendingUp, DollarSign, AlertCircle, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { SEO } from "../components/SEO";
+import { SEO } from '../components/layout/SEO';
 import { supabase } from '../../lib/supabase';
 import {
     getLendingTrends,

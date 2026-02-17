@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { LayoutDashboard, PlusCircle, Users, User, BarChart3, Building2 } from "lucide-react";
-import { cn } from "./ui/utils";
+import { cn } from "../ui/utils";
 
 export function BottomNav() {
     const location = useLocation();

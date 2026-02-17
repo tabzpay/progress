@@ -5,7 +5,7 @@
 import { useState } from 'react';
 import { Label } from '../../../ui/label';
 import { Input } from '../../../ui/input';
-import { CustomerSelector } from '../../../CustomerSelector';
+import { CustomerSelector } from '../../customers/CustomerSelector';
 import type { Customer } from '../../../../../lib/types/customer';
 import { cn } from '../../../ui/utils';
 

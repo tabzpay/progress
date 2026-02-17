@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../../../lib/supabase";
 import { CheckCircle2, Clock, AlertCircle, Calendar } from "lucide-react";
-import { cn } from "./ui/utils";
+import { cn } from "../../ui/utils";
 import { format } from "date-fns";
 import { motion } from "motion/react";
 

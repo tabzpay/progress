@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Shield, Users, Bell, ArrowRight, Check } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { cn } from "../components/ui/utils";
 import { motion, AnimatePresence } from "motion/react";
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../lib/contexts/AuthContext";
+import { toast } from "sonner";
 
 const slides = [
   {
@@ -28,18 +31,78 @@ const slides = [
 
 export function Onboarding() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isCompleting, setIsCompleting] = useState(false);
 
-  const handleNext = () => {
+  // Check if user already completed onboarding
+  useEffect(() => {
+    async function checkOnboardingStatus() {
+      if (!user) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('onboarding_completed')
+          .eq('id', user.id)
+          .single();
+
+        if (error) throw error;
+
+        // If already completed, skip to dashboard
+        if (data?.onboarding_completed) {
+          navigate("/dashboard", { replace: true });
+        }
+      } catch (error) {
+        console.error('Error checking onboarding status:', error);
+      }
+    }
+
+    checkOnboardingStatus();
+  }, [user, navigate]);
+
+  const handleNext = async () => {
     if (currentSlide < slides.length - 1) {
       setCurrentSlide(currentSlide + 1);
     } else {
-      navigate("/dashboard");
+      // Last slide - save completion and navigate
+      await completeOnboarding();
     }
   };
 
-  const handleSkip = () => {
-    navigate("/dashboard");
+  const handleSkip = async () => {
+    // Still mark as completed even if skipped
+    await completeOnboarding();
+  };
+
+  const completeOnboarding = async () => {
+    if (!user) {
+      navigate("/dashboard");
+      return;
+    }
+
+    setIsCompleting(true);
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          onboarding_completed: true,
+          onboarding_completed_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      navigate("/dashboard", { replace: true });
+    } catch (error: any) {
+      console.error('Error saving onboarding completion:', error);
+      toast.error('Failed to save progress');
+      // Still navigate even if save fails
+      navigate("/dashboard", { replace: true });
+    } finally {
+      setIsCompleting(false);
+    }
   };
 
   return (
@@ -118,8 +181,11 @@ export function Onboarding() {
           <Button
             className="w-full h-14 text-lg rounded-xl shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all hover:scale-[1.02]"
             onClick={handleNext}
+            disabled={isCompleting}
           >
-            {currentSlide < slides.length - 1 ? (
+            {isCompleting ? (
+              "Saving..."
+            ) : currentSlide < slides.length - 1 ? (
               <>
                 Next <ArrowRight className="w-5 h-5 ml-2" />
               </>

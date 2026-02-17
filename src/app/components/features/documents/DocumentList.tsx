@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { FileText, Download, Trash2, Eye, StickyNote, Image as ImageIcon } from "lucide-react";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../../../lib/supabase";
 import { toast } from "sonner";
-import { Button } from "./ui/button";
-import { cn } from "./ui/utils";
+import { Button } from "../../ui/button";
+import { cn } from "../../ui/utils";
 import { motion, AnimatePresence } from "motion/react";
 
 interface Document {

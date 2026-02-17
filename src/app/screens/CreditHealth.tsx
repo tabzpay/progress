@@ -5,7 +5,7 @@ import { motion } from "motion/react";
 import { Button } from "../components/ui/button";
 import { useAuth } from "../../lib/contexts/AuthContext";
 import { calculateCreditScore, CreditScoreResult, getTierColor, getTierDescription } from "../../lib/CreditScore";
-import { SEO } from "../components/SEO";
+import { SEO } from "../components/layout/SEO";
 import { cn } from "../components/ui/utils";
 
 export function CreditHealth() {

@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { deriveKey } from "../../lib/encryption";
 import { setPrivacyKey, getPrivacyStatus } from "../../lib/privacyKeyStore";
 import { logActivity } from "../../lib/logger";
-import { ConfirmModal } from "../components/ConfirmModal";
+import { ConfirmModal } from "../components/shared/ConfirmModal";
 
 export default function SecuritySettings() {
     const navigate = useNavigate();

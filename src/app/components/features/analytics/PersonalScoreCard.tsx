@@ -1,8 +1,8 @@
 import { motion } from 'motion/react';
 import { ScoreBadge } from './ScoreBadge';
-import { getTierDescription, type CreditScoreResult } from '../../lib/CreditScore';
+import { getTierDescription, type CreditScoreResult } from '../../../../lib/CreditScore';
 import { Sparkles, Info, ArrowUpRight } from 'lucide-react';
-import { cn } from './ui/utils';
+import { cn } from "../../ui/utils";
 
 interface PersonalScoreCardProps {
     creditScore: CreditScoreResult;

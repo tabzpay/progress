@@ -1,8 +1,8 @@
 import { motion, AnimatePresence } from "motion/react";
 import { Copy, Share2, Check, X, QrCode } from "lucide-react";
-import { Button } from "./ui/button";
+import { Button } from "../ui/button";
 import { useState } from "react";
-import { cn } from "./ui/utils";
+import { cn } from "../ui/utils";
 
 interface ShareOverlayProps {
     isOpen: boolean;

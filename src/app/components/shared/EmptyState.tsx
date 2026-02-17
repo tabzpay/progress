@@ -1,6 +1,6 @@
 import { LucideIcon } from "lucide-react";
-import { Button } from "./ui/button";
-import { cn } from "./ui/utils";
+import { Button } from "../ui/button";
+import { cn } from "../ui/utils";
 import { motion } from "motion/react";
 
 interface EmptyStateProps {

@@ -1,6 +1,6 @@
 import { motion } from 'motion/react';
 import { Calendar, ArrowRight, CreditCard, Clock } from 'lucide-react';
-import { cn } from './ui/utils';
+import { cn } from "../../ui/utils";
 
 interface Installment {
     id: string;

@@ -1,5 +1,5 @@
 import { Bell } from "lucide-react";
-import { cn } from "./ui/utils";
+import { cn } from "../ui/utils";
 
 interface ReminderBadgeProps {
   count: number;

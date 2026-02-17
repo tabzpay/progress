@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { Trash2, Plus, BookmarkPlus, Sparkles } from "lucide-react";
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
-import { supabase } from "../../lib/supabase";
+import { Button } from "../../ui/button";
+import { Input } from "../../ui/input";
+import { Label } from "../../ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../../ui/dialog";
+import { supabase } from "../../../../lib/supabase";
+import { useAuth } from "../../../../lib/contexts/AuthContext";
 import { toast } from "sonner";
-import { cn } from "./ui/utils";
-import { analytics } from "../../lib/analytics";
+import { cn } from "../../ui/utils";
+import { analytics } from "../../../../lib/analytics";
 
 interface LoanTemplate {
     id: string;

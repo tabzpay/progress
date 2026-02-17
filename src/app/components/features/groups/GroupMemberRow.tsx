@@ -1,5 +1,5 @@
 import { User, ArrowUpRight, ArrowDownLeft } from "lucide-react";
-import { cn } from "./ui/utils";
+import { cn } from "../../ui/utils";
 import { motion } from "motion/react";
 
 interface GroupMemberRowProps {

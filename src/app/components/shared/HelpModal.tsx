@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Keyboard, X } from "lucide-react";
-import { cn } from "./ui/utils";
+import { cn } from "../ui/utils";
 
 interface Shortcut {
     keys: string[];

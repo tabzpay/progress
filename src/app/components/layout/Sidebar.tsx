@@ -1,10 +1,10 @@
 // Desktop Sidebar Navigation Component
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { LayoutDashboard, PlusCircle, Building2, User, BarChart3, Users, LogOut, Menu, X, Sparkles } from "lucide-react";
-import { cn } from "./ui/utils";
-import { Button } from "./ui/button";
+import { cn } from "../ui/utils";
+import { Button } from "../ui/button";
 import { useState } from "react";
-import { useAuth } from "../../lib/contexts/AuthContext";
+import { useAuth } from "../../../lib/contexts/AuthContext";
 import { motion, AnimatePresence } from "motion/react";
 
 export function Sidebar() {

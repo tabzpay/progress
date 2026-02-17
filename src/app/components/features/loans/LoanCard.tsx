@@ -1,9 +1,9 @@
 import { ArrowRight, Calendar, User, TrendingUp, TrendingDown } from "lucide-react";
 import { StatusTag } from "./StatusTag";
-import { cn } from "./ui/utils";
+import { cn } from "../../ui/utils";
 import { motion } from "motion/react";
-import { ScoreBadgeCompact } from "./ScoreBadge";
-import type { CreditTier } from "../../lib/CreditScore";
+import { ScoreBadgeCompact } from "../analytics/ScoreBadge";
+import type { CreditTier } from "../../../../lib/CreditScore";
 
 type LoanStatus = "active" | "partial" | "completed" | "overdue";
 type LoanType = "personal" | "business" | "group";

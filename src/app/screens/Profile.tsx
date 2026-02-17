@@ -7,12 +7,12 @@ import { cn } from "../components/ui/utils";
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
-import { ConfirmModal } from "../components/ConfirmModal";
+import { ConfirmModal } from "../components/shared/ConfirmModal";
 import { ThemeToggle } from "../components/ui/theme-toggle";
-import { PurchaseCreditsModal } from "../components/PurchaseCreditsModal";
+import { PurchaseCreditsModal } from "../components/shared/PurchaseCreditsModal";
 import { analytics, identifyUser } from "../../lib/analytics";
 import { useAuth } from "../../lib/contexts/AuthContext";
-import { VerificationPrompt } from "../components/VerificationPrompt";
+import { VerificationPrompt } from "../components/features/customers/VerificationPrompt";
 import { checkVerificationStatus, syncEmailVerification, type VerificationStatus } from "../../lib/verification";
 
 export function Profile() {

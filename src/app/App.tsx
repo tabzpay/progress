@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { SignIn } from "./screens/SignIn";
 import { Onboarding } from "./screens/Onboarding";
 import { Dashboard } from "./screens/Dashboard";
@@ -104,13 +104,19 @@ function AppRoutes() {
 function GlobalUI() {
   const { session } = useAuth();
   const isAuthenticated = !!session;
+  const location = useLocation();
+
+  // Full screen routes that shouldn't show navigation
+  const fullScreenRoutes = ['/onboarding', '/get-started', '/sign-in'];
+  const isFullScreen = fullScreenRoutes.includes(location.pathname);
 
   return (
     <>
       <Toaster />
       <CommandPalette />
       <HelpModal />
-      {isAuthenticated && <BottomNav />}
+      {/* Hide BottomNav on full-screen routes */}
+      {isAuthenticated && !isFullScreen && <BottomNav />}
     </>
   );
 }
@@ -118,8 +124,15 @@ function GlobalUI() {
 function AppLayout() {
   const { session } = useAuth();
   const isAuthenticated = !!session;
+  const location = useLocation();
 
   if (!isAuthenticated) {
+    return <AppRoutes />;
+  }
+
+  // Show full-screen onboarding/auth without app chrome (sidebar/navigation)
+  const fullScreenRoutes = ['/onboarding', '/get-started', '/sign-in'];
+  if (fullScreenRoutes.includes(location.pathname)) {
     return <AppRoutes />;
   }
 

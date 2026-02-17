@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
-import { SEO } from "../components/SEO";
+import { SEO } from "../components/layout/SEO";
 import { useState, useEffect } from "react";
 import { cn } from "../components/ui/utils";
 import { useAuth } from "../../lib/contexts/AuthContext";

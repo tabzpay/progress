@@ -1,7 +1,7 @@
 import { ShieldCheck, Mail, Smartphone, CheckCircle2, AlertCircle } from "lucide-react";
 import { motion } from "motion/react";
-import { cn } from "./ui/utils";
-import { VerificationStatus } from "../../lib/verification";
+import { cn } from "../../ui/utils";
+import { VerificationStatus } from "../../../../lib/verification";
 
 interface VerificationPromptProps {
     status: VerificationStatus;

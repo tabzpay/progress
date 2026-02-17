@@ -7,7 +7,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { cn } from "../components/ui/utils";
 import { getCustomerDisplayName, getCreditUtilization } from "../../lib/types/customer";
-import { CreateCustomerModal } from "../components/CreateCustomerModal";
+import { CreateCustomerModal } from "../components/features/customers/CreateCustomerModal";
 import { useCustomers, useCustomerSummary } from "../../lib/hooks/useCustomers";
 
 export function Customers() {

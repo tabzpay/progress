@@ -2,9 +2,9 @@ import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { Upload, X, FileText, CheckCircle2, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../../../../lib/supabase";
 import { toast } from "sonner";
-import { cn } from "./ui/utils";
+import { cn } from "../../ui/utils";
 
 interface FileUploaderProps {
     bucketName: string;
