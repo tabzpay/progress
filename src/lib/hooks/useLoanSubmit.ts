@@ -26,6 +26,7 @@ interface SubmitLoanData {
         accountName: string;
         accountNumber: string;
     };
+    status?: string;
 }
 
 export function useLoanSubmit() {
@@ -45,6 +46,7 @@ export function useLoanSubmit() {
             taxRate = 0,
             taxAmount = 0,
             bankDetails,
+            status = 'active',
         } = data;
 
         setIsSubmitting(true);
@@ -77,7 +79,7 @@ export function useLoanSubmit() {
                 currency: formData.currency,
                 due_date: formData.due_date,
                 note: encryptedNote,
-                status: 'ACTIVE',
+                status: status, // Use the passed status or default to 'active'
             };
 
             // Add customer ID for business loans
@@ -168,9 +170,14 @@ export function useLoanSubmit() {
             const url = `${window.location.origin}/loan/${loanId}`;
             setShareUrl(url);
 
-            // Show success
-            setIsSuccessOpen(true);
-            toast.success('Loan created successfully!');
+            // Show success or share modal based on status
+            if (status === 'pending_acceptance') {
+                setIsShareOpen(true);
+                toast.success('Loan offer created! Share the link with the borrower.');
+            } else {
+                setIsSuccessOpen(true);
+                toast.success('Loan created successfully!');
+            }
 
             return true;
         } catch (error) {

@@ -374,9 +374,30 @@ export function CreateLoan() {
           </Button>
 
           {wizard.isLastStep ? (
-            <Button onClick={handleSubmit} disabled={submit.isSubmitting} className="gap-2">
-              {submit.isSubmitting ? 'Creating...' : 'Create Loan'}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => submit.submitLoan({
+                  formData: loanForm.watch(),
+                  userId: user?.id || '',
+                  customerId: selectedCustomer?.id,
+                  groupId: groups.selectedGroupId,
+                  paymentPlan: paymentPlan.paymentPlan,
+                  taxRate: paymentPlan.taxRate,
+                  taxAmount: paymentPlan.taxAmount,
+                  bankDetails: { bankName, accountName, accountNumber },
+                  status: 'pending_acceptance'
+                })}
+                disabled={submit.isSubmitting}
+                className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:text-indigo-800"
+              >
+                <Sparkles className="w-4 h-4" />
+                Send as Offer
+              </Button>
+              <Button onClick={handleSubmit} disabled={submit.isSubmitting} className="gap-2">
+                {submit.isSubmitting ? 'Creating...' : 'Create Loan'}
+              </Button>
+            </div>
           ) : (
             <Button onClick={handleNext} className="gap-2">
               Next

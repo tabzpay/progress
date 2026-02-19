@@ -28,6 +28,10 @@ const statusConfig: Record<string, { label: string; className: string }> = {
     label: "Pending",
     className: "bg-slate-100 text-slate-700 border-slate-200",
   },
+  pending_acceptance: {
+    label: "Offer Pending",
+    className: "bg-indigo-100 text-indigo-700 border-indigo-200",
+  },
 };
 
 export function StatusTag({ status, className }: StatusTagProps) {

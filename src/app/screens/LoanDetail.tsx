@@ -66,6 +66,64 @@ export function LoanDetail() {
     }
   }
 
+  // ====================
+  // OFFER ACCEPTANCE
+  // ====================
+
+  const handleAcceptOffer = async () => {
+    try {
+      if (!user) {
+        toast.error("Please sign in to accept this offer");
+        return;
+      }
+
+      const { error } = await supabase
+        .from('loans')
+        .update({ status: 'active' })
+        .eq('id', loanId);
+
+      if (error) throw error;
+
+      toast.success("Loan offer accepted!");
+      setLoan({ ...loan, status: 'active' });
+
+      // Log activity
+      await supabase.from('activity_logs').insert({
+        user_id: user.id,
+        action: 'ACCEPT_LOAN_OFFER',
+        resource_type: 'loan',
+        resource_id: loanId,
+        metadata: { amount: loan.amount }
+      });
+
+    } catch (error) {
+      console.error("Error accepting offer:", error);
+      toast.error("Failed to accept offer");
+    }
+  };
+
+  const handleDeclineOffer = async () => {
+    if (!window.confirm("Are you sure you want to decline this loan offer?")) return;
+
+    try {
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('loans')
+        .update({ status: 'rejected' }) // Or delete if preferred
+        .eq('id', loanId);
+
+      if (error) throw error;
+
+      toast.success("Loan offer declined");
+      navigate('/dashboard');
+
+    } catch (error) {
+      console.error("Error declining offer:", error);
+      toast.error("Failed to decline offer");
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -89,6 +147,15 @@ export function LoanDetail() {
   }
 
   const isLender = loan.lender_id === userId;
+  const isBorrower = loan.user_id !== userId; // Assuming loan.user_id is the creator (Lender) for personal loans? Wait, need to check data model.
+  // Actually, standard model: user_id is creator.
+  // If type='personal' and I created it, I am the lender.
+  // If status is 'pending_acceptance', the creator is the Lender. 
+  // The viewer (if not creator) is the potential Borrower.
+
+  const isPendingAcceptance = loan.status === 'pending_acceptance';
+
+  // Logic for names
   const otherPartyName = isLender ? loan.borrower_name : "Lender";
 
   const paidAmount = loan.repayments?.reduce((sum: number, r: any) => sum + (Number(r.amount) || 0), 0) || 0;
@@ -303,33 +370,60 @@ export function LoanDetail() {
       <main className="max-w-xl mx-auto px-5 -mt-8 relative z-20">
         <div className="space-y-6">
           {/* Acceptance Banner */}
-          {!loan.isAccepted && (
+          {isPendingAcceptance && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="bg-white/90 backdrop-blur-xl border border-amber-200/50 rounded-3xl p-6 shadow-lg shadow-amber-900/5 overflow-hidden relative group"
             >
               <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                <UserPlus className="w-16 h-16" />
+                {isLender ? <UserPlus className="w-16 h-16" /> : <CheckCircle2 className="w-16 h-16" />}
               </div>
               <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                   <span className="text-[10px] font-black uppercase tracking-widest text-amber-600">Action Required</span>
                 </div>
-                <h3 className="text-lg font-black text-amber-900 mb-1">Pending Acceptance</h3>
-                <p className="text-sm font-medium text-amber-800/70 leading-relaxed mb-4">
-                  {otherPartyName} hasn't accepted this loan agreement yet. Resend the invitation to finalize the records.
-                </p>
-                <Button
-                  onClick={() => {
-                    setShareUrl(`https://progress-app.com/accept/${Math.random().toString(36).substring(7)}`);
-                    setIsShareOpen(true);
-                  }}
-                  className="rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold h-11 px-6 shadow-lg shadow-amber-500/20 transition-all hover:scale-[1.02]"
-                >
-                  Resend Invite
-                </Button>
+
+                {isLender ? (
+                  <>
+                    <h3 className="text-lg font-black text-amber-900 mb-1">Pending Acceptance</h3>
+                    <p className="text-sm font-medium text-amber-800/70 leading-relaxed mb-4">
+                      {otherPartyName} hasn't accepted this loan offer yet. Share the link with them to finalize the agreement.
+                    </p>
+                    <Button
+                      onClick={() => {
+                        setShareUrl(`${window.location.origin}/loan/${loanId}`);
+                        setIsShareOpen(true);
+                      }}
+                      className="rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-bold h-11 px-6 shadow-lg shadow-amber-500/20 transition-all hover:scale-[1.02]"
+                    >
+                      Share Offer Link
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-lg font-black text-amber-900 mb-1">Loan Offer Received</h3>
+                    <p className="text-sm font-medium text-amber-800/70 leading-relaxed mb-4">
+                      {otherPartyName} has sent you a loan offer of {formatAmount(loan.amount)}. Please review the terms below and accept to proceed.
+                    </p>
+                    <div className="flex gap-3">
+                      <Button
+                        onClick={handleAcceptOffer}
+                        className="flex-1 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white font-bold h-11 shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02]"
+                      >
+                        Accept Offer
+                      </Button>
+                      <Button
+                        onClick={handleDeclineOffer}
+                        variant="outline"
+                        className="flex-1 rounded-xl border-amber-200 text-amber-800 hover:bg-amber-50 font-bold h-11"
+                      >
+                        Decline
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             </motion.div>
           )}
