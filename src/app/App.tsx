@@ -33,6 +33,8 @@ import { CreditHealth } from "./screens/CreditHealth";
 import { AnalyticsDashboard } from "./screens/AnalyticsDashboard";
 import { Customers } from "./screens/Customers";
 import { CustomerDetail } from "./screens/CustomerDetail";
+import { ResetPassword } from "./screens/ResetPassword";
+import { PaymentCalendar } from "./screens/PaymentCalendar";
 import { Toaster } from "./components/ui/sonner";
 import { KeyboardShortcutsProvider } from "./components/shared/KeyboardShortcutsProvider";
 import { CommandPalette } from "./components/shared/CommandPalette";
@@ -70,6 +72,7 @@ function AppRoutes() {
       <Route path="/sign-in" element={<SignIn />} />
       <Route path="/get-started" element={<Register />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/onboarding" element={<Onboarding />} />
 
       {/* Main App Routes - Tightened with ProtectedRoute */}
@@ -92,6 +95,7 @@ function AppRoutes() {
         <Route path="/security-settings" element={<SecuritySettings />} />
         <Route path="/mfa-verify" element={<MFAVerify />} />
         <Route path="/credit-health" element={<CreditHealth />} />
+        <Route path="/calendar" element={<PaymentCalendar />} />
         <Route path="/design-system" element={<DesignSystem />} />
       </Route>
 

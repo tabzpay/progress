@@ -139,7 +139,7 @@ export function ReviewStep({
                         <div className="flex-1">
                             <p className="text-sm text-gray-600 dark:text-gray-400">Payment Schedule</p>
                             <p className="font-semibold text-gray-900 dark:text-white">
-                                {paymentPlan.installments.length} installments
+                                {paymentPlan.duration} installments
                             </p>
                             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                                 {paymentPlan.frequency} • {paymentPlan.interestRate}% interest

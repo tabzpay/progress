@@ -137,17 +137,32 @@ export default function SecuritySettings() {
     const activeFactor = mfaFactors.find(f => f.status === 'verified');
 
     return (
-        <div className="min-h-screen bg-[#FAFBFF] pb-20">
-            <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-100 px-4 py-4">
-                <div className="max-w-2xl mx-auto flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full">
-                        <ArrowLeft className="w-5 h-5 text-slate-600" />
-                    </Button>
-                    <h1 className="text-lg font-bold text-slate-900">Security Center</h1>
+        <div className="min-h-screen bg-[#F8FAFC] pb-32">
+            {/* Premium Header */}
+            <header className="relative overflow-hidden pt-8 pb-12 px-4 shadow-xl">
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-blue-600 to-violet-700">
+                    <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] pointer-events-none" />
+                    <motion.div
+                        animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0.3, 0.2] }}
+                        transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+                        className="absolute -top-12 -right-12 w-64 h-64 bg-white/20 rounded-full blur-[60px]"
+                    />
+                </div>
+                <div className="max-w-xl mx-auto relative z-10 text-white">
+                    <div className="flex items-center gap-4">
+                        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}
+                            className="text-white hover:bg-white/10 rounded-full h-10 w-10 border border-white/20 backdrop-blur-sm shrink-0">
+                            <ArrowLeft className="w-5 h-5" />
+                        </Button>
+                        <div>
+                            <h1 className="text-2xl font-black tracking-tight">Security Center</h1>
+                            <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mt-1">2FA &amp; Privacy Shield</p>
+                        </div>
+                    </div>
                 </div>
             </header>
 
-            <main className="max-w-xl mx-auto px-4 py-8 space-y-8">
+            <main className="max-w-xl mx-auto px-4 -mt-6 relative z-20 space-y-8">
                 {/* Security Hero */}
                 <div className="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-100 flex items-center gap-6">
                     <div className={`w-20 h-20 rounded-3xl flex items-center justify-center transition-colors ${activeFactor ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'}`}>

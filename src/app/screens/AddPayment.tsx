@@ -18,6 +18,7 @@ import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
 import { logActivity } from "../../lib/logger";
 import { useAuth } from "../../lib/contexts/AuthContext";
+import { sendPaymentReceiptEmail } from "../../lib/notifications/email";
 
 export function AddPayment() {
   const { user } = useAuth();
@@ -57,7 +58,7 @@ export function AddPayment() {
       if (!user) return;
       const { data, error } = await supabase
         .from('loans')
-        .select('*, repayments(*)')
+        .select('*, repayments(*), borrower:borrower_id(email)')
         .eq('id', loanId)
         .single();
 
@@ -152,6 +153,25 @@ export function AddPayment() {
       setIsSuccessOpen(true);
       await logActivity('PAYMENT_RECORDED', `Logged a payment of ${loan.currency} ${data.amount} for loan #${loan.id.slice(0, 8)}`, { loan_id: loanId, amount: data.amount });
       toast.success("Payment successfully logged");
+
+      // Send email receipt (non-fatal)
+      try {
+        const borrowerEmail = loan.borrower?.email || null;
+        if (borrowerEmail) {
+          await sendPaymentReceiptEmail({
+            to: borrowerEmail,
+            borrowerName: loan.borrower_name,
+            lenderName: user?.email || 'Your Lender',
+            amount: data.amount,
+            currency: loan.currency || 'USD',
+            loanId: loan.id,
+            remainingBalance: Math.max(0, currentRemainingBalance - data.amount),
+            ...(data.note ? { note: data.note } : {}),
+          });
+        }
+      } catch (emailErr) {
+        console.warn('Email receipt failed (non-fatal):', emailErr);
+      }
     } catch (error: any) {
       console.error("Error saving payment:", error);
       toast.error(error.message || "Failed to record payment");

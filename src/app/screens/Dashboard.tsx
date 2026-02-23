@@ -1,7 +1,7 @@
-import { Plus, DollarSign, FileText, Menu, User, Search, Filter, ArrowRight, BellRing, UserPlus, HeartPulse, AlertTriangle, CheckCircle2, Navigation, Download, Tag, Sparkles } from "lucide-react";
+import { Plus, DollarSign, FileText, Menu, User, Search, Filter, ArrowRight, BellRing, UserPlus, HeartPulse, AlertTriangle, CheckCircle2, Download, Tag, Sparkles } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { SEO } from "../components/layout/SEO";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { LoanCard } from "../components/features/loans/LoanCard";
 import { PersonalScoreCard } from "../components/features/analytics/PersonalScoreCard";
@@ -48,9 +48,23 @@ export function Dashboard() {
   const [userCreditScore, setUserCreditScore] = useState<CreditScoreResult | null>(null);
   const [isScoreDetailOpen, setIsScoreDetailOpen] = useState(false);
   const [upcomingInstallments, setUpcomingInstallments] = useState<any[]>([]);
-  const [contacts, setContacts] = useState<any[]>([]);
+  const [showMoreCurrencies, setShowMoreCurrencies] = useState(false);
+  const moreCurrenciesRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showMoreCurrencies) return;
+    const handler = (e: MouseEvent) => {
+      if (moreCurrenciesRef.current && !moreCurrenciesRef.current.contains(e.target as Node)) {
+        setShowMoreCurrencies(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showMoreCurrencies]);
+
+
   const [selectedContact, setSelectedContact] = useState<any | null>(null);
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
+  const [contacts, setContacts] = useState<any[]>([]);
 
   // Advanced Filters State
   const [minAmount, setMinAmount] = useState("");
@@ -638,7 +652,7 @@ export function Dashboard() {
                     whileTap={{ scale: 0.96 }}
                     onClick={() => setCurrency(c.code)}
                     className={cn(
-                      "flex-1 sm:flex-none px-3 py-1.5 rounded-xl text-[10px] font-black transition-all",
+                      "flex-1 sm:flex-none px-2.5 py-1.5 rounded-xl text-[10px] font-black transition-all",
                       currency === c.code
                         ? "bg-white text-indigo-700 shadow-xl"
                         : "text-white/60 hover:text-white"
@@ -647,19 +661,49 @@ export function Dashboard() {
                     {c.code}
                   </motion.button>
                 ))}
-                <div className="w-px h-3 bg-white/20 mx-1 hidden sm:block" />
-                <div className="relative group px-2 sm:pr-2 hidden sm:block">
-                  <select
-                    value={currencies.some(c => c.code === currency && currencies.indexOf(c) > 2) ? currency : ""}
-                    onChange={(e) => e.target.value && setCurrency(e.target.value)}
-                    className="bg-transparent text-white/60 text-[10px] font-black outline-none appearance-none cursor-pointer hover:text-white pr-3"
+                <div className="w-px h-3 bg-white/20 mx-0.5" />
+                <div className="relative" ref={moreCurrenciesRef}>
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowMoreCurrencies(prev => !prev)}
+                    className={cn(
+                      "flex items-center gap-1 px-2 py-1.5 rounded-xl text-[10px] font-black transition-all",
+                      currencies.some(c => c.code === currency && currencies.indexOf(c) > 2)
+                        ? "bg-white text-indigo-700 shadow-xl"
+                        : "text-white/60 hover:text-white"
+                    )}
                   >
-                    <option value="" disabled className="text-slate-900">More</option>
-                    {currencies.slice(3).map(c => (
-                      <option key={c.code} value={c.code} className="text-slate-900">{c.code}</option>
-                    ))}
-                  </select>
-                  <Navigation className="w-2.5 h-2.5 text-white/40 absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none group-hover:text-white transition-colors" />
+                    {currencies.some(c => c.code === currency && currencies.indexOf(c) > 2)
+                      ? currency
+                      : "More"}
+                    <ChevronDown className={cn("w-3 h-3 transition-transform", showMoreCurrencies && "rotate-180")} />
+                  </motion.button>
+
+                  <AnimatePresence>
+                    {showMoreCurrencies && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 6, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 6, scale: 0.95 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute right-0 top-full mt-2 z-50 bg-indigo-900/90 backdrop-blur-2xl border border-white/20 rounded-2xl shadow-2xl overflow-hidden min-w-[110px]"
+                      >
+                        {currencies.slice(3).map((c) => (
+                          <button
+                            key={c.code}
+                            onClick={() => { setCurrency(c.code); setShowMoreCurrencies(false); }}
+                            className={cn(
+                              "w-full flex items-center justify-between px-4 py-2.5 text-[11px] font-black transition-colors hover:bg-white/10",
+                              currency === c.code ? "text-white bg-white/10" : "text-white/70"
+                            )}
+                          >
+                            <span>{c.code}</span>
+                            <span className="text-white/40 font-bold ml-3">{c.symbol}</span>
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </motion.div>
 

@@ -8,12 +8,20 @@ import { PlanConfig, calculateInstallments, Installment } from "../../../../lib/
 import { cn } from "../../ui/utils";
 
 interface PaymentPlanConfigProps {
-    amount: number;
-    startDate: Date;
-    onChange: (config: PlanConfig) => void;
+    initialAmount: number;
+    currency?: string;
+    dueDate?: string;
+    startDate?: Date;
+    onPlanChange?: (config: PlanConfig) => void;
+    /** @deprecated use onPlanChange */
+    onChange?: (config: PlanConfig) => void;
 }
 
-export function PaymentPlanConfig({ amount, startDate, onChange }: PaymentPlanConfigProps) {
+export function PaymentPlanConfig({ initialAmount, dueDate, startDate, onPlanChange, onChange }: PaymentPlanConfigProps) {
+    const amount = initialAmount;
+    const resolvedStartDate = startDate ?? (dueDate ? new Date(dueDate) : new Date());
+    const handleChange = onPlanChange ?? onChange;
+
     const [frequency, setFrequency] = useState<PlanConfig["frequency"]>("monthly");
     const [duration, setDuration] = useState(1);
     const [interestRate, setInterestRate] = useState(0);
@@ -28,12 +36,12 @@ export function PaymentPlanConfig({ amount, startDate, onChange }: PaymentPlanCo
             duration,
             interestRate,
             interestType,
-            startDate
+            startDate: resolvedStartDate
         };
 
         setInstallments(calculateInstallments(config));
-        onChange(config);
-    }, [amount, frequency, duration, interestRate, interestType, startDate]);
+        handleChange?.(config);
+    }, [amount, frequency, duration, interestRate, interestType, resolvedStartDate.toISOString()]);
 
     const totalRepayment = installments.reduce((sum, i) => sum + i.amount, 0);
     const totalInterest = totalRepayment - amount;

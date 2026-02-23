@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, BellRing, Settings, Save, Plus, Trash2, MessageSquare, Mail, Info, Play, AlertCircle } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Info, Play } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -16,7 +16,7 @@ export function ReminderSettings() {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [templates, setTemplates] = useState<any[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [_isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isTesting, setIsTesting] = useState(false);
 
@@ -113,7 +113,7 @@ export function ReminderSettings() {
         <div className="min-h-screen bg-[#F8FAFC] pb-32">
             {/* Header */}
             <header className="relative pt-8 pb-12 px-4 shadow-xl overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-700">
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-blue-600 to-violet-700">
                     <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] pointer-events-none" />
                 </div>
 

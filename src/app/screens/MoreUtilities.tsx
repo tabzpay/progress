@@ -1,4 +1,4 @@
-import { ArrowLeft, HelpCircle, BookOpen, BarChart3, Star, FileText, ShieldAlert, Info, ChevronRight, MessageSquare, Newspaper, Zap, Clock, BellRing, Shield } from "lucide-react";
+import { ArrowLeft, HelpCircle, BookOpen, BarChart3, Star, FileText, ShieldAlert, Info, ChevronRight, MessageSquare, Newspaper, Zap, Clock, BellRing, Shield, CalendarDays } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { Button } from "../components/ui/button";
@@ -41,6 +41,7 @@ export function MoreUtilities() {
                     color: "bg-emerald-50 text-emerald-600"
                 },
                 { icon: Zap, label: "Boost Score", desc: "Improve your credit rating", color: "bg-indigo-50 text-indigo-600", path: "/credit-health" },
+                { icon: CalendarDays, label: "Payment Calendar", desc: "Visual due date overview", color: "bg-blue-50 text-blue-600", path: "/calendar" },
             ]
         },
         {

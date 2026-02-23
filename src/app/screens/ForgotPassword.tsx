@@ -198,7 +198,6 @@ export function ForgotPassword() {
                                     variant="outline"
                                     onClick={() => {
                                         setIsSubmitted(false);
-                                        setEmail("");
                                     }}
                                     className="w-full"
                                 >

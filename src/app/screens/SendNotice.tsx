@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { ArrowLeft, BellRing, MessageSquare, Send, CheckCircle2, Info, ChevronRight, Clock, AlertCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Info, Clock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "../components/ui/button";
-import { mockLoans, currentUser, Loan } from "../data/mockData";
+
 import { cn } from "../components/ui/utils";
 import { useEffect } from "react";
 import { supabase } from "../../lib/supabase";
@@ -17,7 +17,7 @@ export function SendNotice() {
     const [isSent, setIsSent] = useState(false);
     const [actionableLoans, setActionableLoans] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const userId = user?.id;
+
 
     const [schedules, setSchedules] = useState<any[]>([]);
     const [isScheduling, setIsScheduling] = useState(false);
@@ -172,7 +172,7 @@ export function SendNotice() {
         <div className="min-h-screen bg-[#F8FAFC] pb-32">
             {/* Premium Header */}
             <header className="relative overflow-hidden pt-8 pb-12 px-4 shadow-xl">
-                <div className="absolute inset-0 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700">
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-blue-600 to-violet-700">
                     <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] pointer-events-none" />
                     <motion.div
                         animate={{

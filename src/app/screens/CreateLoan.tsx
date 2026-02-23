@@ -207,7 +207,7 @@ export function CreateLoan() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4 md:p-8 pb-36 md:pb-8">
       {/* Header */}
       <div className="max-w-4xl mx-auto mb-8">
         <button
@@ -365,9 +365,12 @@ export function CreateLoan() {
             )}
           </motion.div>
         </AnimatePresence>
+      </div>
 
-        {/* Navigation Buttons */}
-        <div className="mt-6 flex justify-between">
+      {/* Sticky bottom action bar — always visible above mobile bottom nav */}
+      {/* Fixed action bar on mobile/tablet (below lg) — sits above the BottomNav */}
+      <div className="fixed bottom-20 left-0 right-0 z-40 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 px-4 py-3 lg:hidden">
+        <div className="max-w-4xl mx-auto flex justify-between">
           <Button variant="outline" onClick={handleBack} disabled={submit.isSubmitting}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             {wizard.isFirstStep ? 'Cancel' : 'Back'}
@@ -386,7 +389,49 @@ export function CreateLoan() {
                   taxRate: paymentPlan.taxRate,
                   taxAmount: paymentPlan.taxAmount,
                   bankDetails: { bankName, accountName, accountNumber },
-                  status: 'pending_acceptance'
+                  status: 'PENDING'
+                })}
+                disabled={submit.isSubmitting}
+                className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:text-indigo-800"
+              >
+                <Sparkles className="w-4 h-4" />
+                Send as Offer
+              </Button>
+              <Button onClick={handleSubmit} disabled={submit.isSubmitting} className="gap-2">
+                {submit.isSubmitting ? 'Creating...' : 'Create Loan'}
+              </Button>
+            </div>
+          ) : (
+            <Button onClick={handleNext} className="gap-2">
+              Next
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Inline action bar for desktop (lg+) */}
+      <div className="hidden lg:block max-w-4xl mx-auto mt-6">
+        <div className="flex justify-between">
+          <Button variant="outline" onClick={handleBack} disabled={submit.isSubmitting}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            {wizard.isFirstStep ? 'Cancel' : 'Back'}
+          </Button>
+
+          {wizard.isLastStep ? (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => submit.submitLoan({
+                  formData: loanForm.watch(),
+                  userId: user?.id || '',
+                  customerId: selectedCustomer?.id,
+                  groupId: groups.selectedGroupId,
+                  paymentPlan: paymentPlan.paymentPlan,
+                  taxRate: paymentPlan.taxRate,
+                  taxAmount: paymentPlan.taxAmount,
+                  bankDetails: { bankName, accountName, accountNumber },
+                  status: 'PENDING'
                 })}
                 disabled={submit.isSubmitting}
                 className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:text-indigo-800"
@@ -432,28 +477,30 @@ export function CreateLoan() {
       />
 
       {/* Save Template Dialog */}
-      {templates.showSaveTemplate && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold mb-4">Save as Template</h3>
-            <input
-              type="text"
-              value={templates.templateName}
-              onChange={(e) => templates.setTemplateName(e.target.value)}
-              placeholder="Template name"
-              className="w-full px-4 py-2 border rounded-lg mb-4"
-            />
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => templates.setShowSaveTemplate(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleSaveTemplate} disabled={templates.isSavingTemplate}>
-                {templates.isSavingTemplate ? 'Saving...' : 'Save'}
-              </Button>
+      {
+        templates.showSaveTemplate && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold mb-4">Save as Template</h3>
+              <input
+                type="text"
+                value={templates.templateName}
+                onChange={(e) => templates.setTemplateName(e.target.value)}
+                placeholder="Template name"
+                className="w-full px-4 py-2 border rounded-lg mb-4"
+              />
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => templates.setShowSaveTemplate(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveTemplate} disabled={templates.isSavingTemplate}>
+                  {templates.isSavingTemplate ? 'Saving...' : 'Save'}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 }

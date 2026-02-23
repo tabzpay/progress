@@ -6,12 +6,12 @@
 import { useState } from 'react';
 import { supabase } from '../supabase';
 import { analytics } from '../analytics';
-import { logActivity } from '../logger';
+
 import { secureEncrypt } from '../encryption';
 import { getPrivacyKey } from '../privacyKeyStore';
 import { toast } from 'sonner';
 import type { LoanFormData } from '../schemas';
-import type { PlanConfig } from '../LoanCalculator';
+import { calculateInstallments, type PlanConfig } from '../LoanCalculator';
 
 interface SubmitLoanData {
     formData: LoanFormData;
@@ -46,22 +46,22 @@ export function useLoanSubmit() {
             taxRate = 0,
             taxAmount = 0,
             bankDetails,
-            status = 'active',
+            status = 'ACTIVE',
         } = data;
 
         setIsSubmitting(true);
 
         try {
             // Encrypt sensitive data if privacy key exists
-            const privacyKey = getPrivacyKey(userId);
+            const privacyKey = getPrivacyKey();
             let encryptedBorrowerName = formData.borrower_name;
-            let encryptedNote = formData.note || '';
+            let encryptedDescription = formData.note || '';
 
             if (privacyKey) {
                 try {
                     encryptedBorrowerName = await secureEncrypt(formData.borrower_name, privacyKey);
                     if (formData.note) {
-                        encryptedNote = await secureEncrypt(formData.note, privacyKey);
+                        encryptedDescription = await secureEncrypt(formData.note, privacyKey);
                     }
                 } catch (encryptError) {
                     console.error('Encryption error:', encryptError);
@@ -72,20 +72,15 @@ export function useLoanSubmit() {
 
             // Prepare loan data
             const loanData: any = {
-                user_id: userId,
+                lender_id: userId,
                 type: formData.type,
                 borrower_name: encryptedBorrowerName,
                 amount: formData.amount,
                 currency: formData.currency,
                 due_date: formData.due_date,
-                note: encryptedNote,
-                status: status, // Use the passed status or default to 'active'
+                description: encryptedDescription,
+                status: status,
             };
-
-            // Add customer ID for business loans
-            if (customerId) {
-                loanData.customer_id = customerId;
-            }
 
             // Add group ID for group loans
             if (groupId) {
@@ -121,15 +116,16 @@ export function useLoanSubmit() {
                         account_number: bankDetails.accountNumber,
                     });
 
-                if (bankError) {
+                if (bankError && bankError.code !== 'PGRST205') {
                     console.error('Bank details error:', bankError);
                     // Non-fatal, continue
                 }
             }
 
             // Save installments if payment plan exists
-            if (paymentPlan?.installments) {
-                const installments = paymentPlan.installments.map((inst, index) => ({
+            if (paymentPlan) {
+                const computed = calculateInstallments(paymentPlan);
+                const installments = computed.map((inst, index) => ({
                     loan_id: loanId,
                     installment_number: index + 1,
                     amount: inst.amount,
@@ -148,30 +144,22 @@ export function useLoanSubmit() {
             }
 
             // Analytics & logging
-            analytics.track('loan_created', {
-                loan_type: formData.type,
+            analytics.loanCreated(loanId, {
+                type: formData.type,
                 amount: formData.amount,
                 currency: formData.currency,
-                has_installments: !!paymentPlan,
+                hasGroup: !!groupId,
             });
 
-            logActivity({
-                user_id: userId,
-                action: 'CREATE_LOAN',
-                resource_type: 'loan',
-                resource_id: loanId,
-                metadata: {
-                    type: formData.type,
-                    amount: formData.amount,
-                },
-            });
+            // logActivity disabled until activity_log table is created in DB
+            // logActivity('LOAN_CREATED', 'Loan created', { type: formData.type, amount: formData.amount });
 
             // Generate share URL
             const url = `${window.location.origin}/loan/${loanId}`;
             setShareUrl(url);
 
             // Show success or share modal based on status
-            if (status === 'pending_acceptance') {
+            if (status === 'PENDING') {
                 setIsShareOpen(true);
                 toast.success('Loan offer created! Share the link with the borrower.');
             } else {
